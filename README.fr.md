@@ -34,6 +34,7 @@ sh run.sh
 2. Un navigateur s'ouvre : résous le captcha Cloudflare s'il apparaît, lance la lecture si la vidéo ne démarre pas.
 3. Après l'analyse (20 s), la liste s'affiche : tape un numéro (`1`), plusieurs (`1,3`) ou `tout`.
 4. Les fichiers arrivent dans `downloads/`.
+5. La fenêtre reste ouverte : colle une autre URL pour relancer une recherche, `lang` bascule anglais/français, `q` quitte.
 
 ## Options
 
@@ -45,6 +46,7 @@ python download_video.py "https://site.com/page" --wait 40 --out mes_videos
 |---|---|---|
 | `--wait N` | secondes d'analyse | 20 |
 | `--out DOSSIER` | dossier de sortie | `downloads` |
+| `--lang en\|fr` | langue de l'interface | `en` |
 | `--cdp URL` | se connecter à ton Chrome ouvert | — |
 
 ## Si Cloudflare bloque

@@ -34,6 +34,7 @@ sh run.sh
 2. A browser opens: solve the Cloudflare captcha if it shows up, and start playback if the video doesn't start by itself.
 3. After the scan (20 s), the list is shown: type a number (`1`), several (`1,3`) or `all`.
 4. Files are saved in `downloads/`.
+5. The window stays open: paste another URL to scan again, `lang` switches English/French, `q` quits.
 
 ## Options
 
@@ -45,6 +46,7 @@ python download_video.py "https://site.com/page" --wait 40 --out my_videos
 |---|---|---|
 | `--wait N` | scan duration in seconds | 20 |
 | `--out DIR` | output folder | `downloads` |
+| `--lang en\|fr` | interface language | `en` |
 | `--cdp URL` | attach to your running Chrome | — |
 
 ## If Cloudflare blocks you
