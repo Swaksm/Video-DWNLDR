@@ -25,11 +25,15 @@ Double-click `VideoGrabber.exe` (or run `python gui.py`).
 
 The app runs locally (nothing is sent anywhere) and opens in its own Chrome/Edge window.
 
-## Shortcuts and uninstall (Windows)
+## Install and uninstall (Windows)
 
-The first time you open `VideoGrabber.exe` it offers to add a **Start menu** entry and a **desktop shortcut** (button "Shortcuts" at the top to do it later). The app is copied to `%LOCALAPPDATA%\Programs\VideoGrabber`, no admin rights needed.
+The first time you open `VideoGrabber.exe`, a setup panel appears: choose the **install location** (Browse...), and keep or untick **Desktop shortcut** and **Start menu** (both ticked by default), then click **Install**. Or click "Run without installing" to use it as a portable file. No admin rights needed. Default location: `%LOCALAPPDATA%\Programs\VideoGrabber`; the app always goes into a folder named `VideoGrabber`.
+
+Later, the **Shortcuts** button at the top lets you add or remove the shortcuts. After installing you can delete the downloaded file.
 
 To uninstall: **Settings > Apps > Installed apps > Video Grabber > Uninstall**, or run `VideoGrabber.exe --uninstall`, or double-click `uninstall.bat`. Your downloaded videos are never deleted.
+
+Your preferences (language, theme, folders) are stored in `%APPDATA%\VideoGrabber` and removed on uninstall.
 
 ## Command line
 
