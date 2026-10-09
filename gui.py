@@ -201,10 +201,11 @@ class Handler(BaseHTTPRequestHandler):
         self.send(404, "{}")
 
     def do_POST(self):
+        raw = self.rfile.read(min(int(self.headers.get("Content-Length", 0) or 0), 1_000_000))  # always drain the body
         if not self.allowed():
             return self.send(403, "{}")
         try:
-            body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
+            body = json.loads(raw or b"{}")
             route = urlparse(self.path).path
             if route == "/api/scan":
                 res = api_scan(body)
