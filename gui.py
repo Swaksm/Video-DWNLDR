@@ -125,7 +125,7 @@ def open_folder(path: str):
 
 
 SETTINGS_FILE = installer.DATA_DIR / "settings.json"
-SETTING_KEYS = {"lang", "theme", "out", "wait", "skip_install"}
+SETTING_KEYS = {"lang", "theme", "out", "wait"}
 
 
 def load_settings() -> dict:
@@ -141,6 +141,34 @@ def save_settings(update: dict) -> dict:
     SETTINGS_FILE.parent.mkdir(parents=True, exist_ok=True)
     SETTINGS_FILE.write_text(json.dumps(data), encoding="utf-8")
     return data
+
+
+BROWSER = {"proc": None}  # the app window process, so the setup can close itself after launching the app
+
+
+def close_window():
+    proc = BROWSER["proc"]
+    if proc:
+        threading.Timer(0.5, proc.terminate).start()
+
+
+def api_launch():
+    d = installer.installed_dir()
+    if not d:
+        return {"ok": False}
+    flags = getattr(subprocess, "DETACHED_PROCESS", 0) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+    env = {**os.environ, "PYINSTALLER_RESET_ENVIRONMENT": "1"}  # the new exe must not reuse our temp folder
+    subprocess.Popen([str(d / installer.EXE_NAME)], creationflags=flags, close_fds=True, env=env)
+    close_window()
+    return {"ok": True}
+
+
+def api_uninstall():
+    if not installer.IS_WIN or not installer.installed_dir():
+        return {"ok": False}
+    installer.uninstall(quiet=True)
+    close_window()
+    return {"ok": True}
 
 
 def api_install(body):
@@ -179,6 +207,7 @@ class Handler(BaseHTTPRequestHandler):
         if u.path == "/":
             settings = json.dumps(load_settings()).replace("</", "<\\/")
             html = (BASE / "ui.html").read_text(encoding="utf-8").replace("__TOKEN__", TOKEN).replace("__SETTINGS__", settings)
+            html = html.replace("__SETUP__", "true" if installer.CAN_INSTALL and not installer.installed_dir() else "false")
             return self.send(200, html, "text/html")
         if u.path.startswith("/api/") and not self.allowed():
             return self.send(403, "{}")
@@ -194,7 +223,7 @@ class Handler(BaseHTTPRequestHandler):
                     "can_browse": installer.IS_WIN,
                     "install": {
                         "can": installer.CAN_INSTALL, "dir": str(installed_dir) if (installed_dir := installer.installed_dir()) else None,
-                        "default_dir": str(installer.DEFAULT_DIR), "shortcuts": S.shortcuts,
+                        "default_dir": str(installer.DEFAULT_DIR), "shortcuts": S.shortcuts, "version": installer.VERSION,
                     },
                 }
             return self.send(200, json.dumps(payload))
@@ -213,6 +242,13 @@ class Handler(BaseHTTPRequestHandler):
                 res = api_download(body)
             elif route == "/api/install":
                 res = api_install(body)
+            elif route == "/api/launch":
+                res = api_launch()
+            elif route == "/api/uninstall":
+                res = api_uninstall()
+            elif route == "/api/quit":
+                close_window()
+                res = {"ok": True}
             elif route == "/api/settings":
                 save_settings(body if isinstance(body, dict) else {})
                 res = {"ok": True}
@@ -257,8 +293,9 @@ def main():
     if browser:
         profile = tempfile.mkdtemp(prefix="videograbber_ui_")
         try:
-            subprocess.Popen([browser, f"--app={url}", "--window-size=1000,860", f"--user-data-dir={profile}",
-                              "--no-first-run", "--no-default-browser-check"]).wait()
+            BROWSER["proc"] = subprocess.Popen([browser, f"--app={url}", "--window-size=1000,860", f"--user-data-dir={profile}",
+                                                "--no-first-run", "--no-default-browser-check"])
+            BROWSER["proc"].wait()
         finally:
             shutil.rmtree(profile, ignore_errors=True)
         return

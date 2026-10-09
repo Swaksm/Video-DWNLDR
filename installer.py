@@ -142,7 +142,7 @@ def uninstall(quiet=False):
     shutil.rmtree(DATA_DIR, ignore_errors=True)
     if exe.exists() and Path(sys.executable).resolve() == exe.resolve():
         # a running exe cannot delete itself: a detached shell removes it once we exit
-        subprocess.Popen(f'cmd /c ping -n 4 127.0.0.1 >nul & del /f /q "{exe}" & rmdir "{d}"', shell=True,
+        subprocess.Popen(f'cmd /c ping -n 6 127.0.0.1 >nul & del /f /q "{exe}" & rmdir "{d}"', shell=True,
                          creationflags=_NO_WINDOW | subprocess.DETACHED_PROCESS)
     else:
         exe.unlink(missing_ok=True)

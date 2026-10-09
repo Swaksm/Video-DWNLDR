@@ -7,7 +7,8 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='15' fill='%2335479E'/%3E%3Cpath d='M24 17v30l25-15z' fill='white'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-<script>window.SETTINGS = __SETTINGS__;</script>
+<script>window.SETTINGS = __SETTINGS__; window.SETUP_ONLY = __SETUP__;
+if (window.SETUP_ONLY) document.documentElement.classList.add("setup-only");</script>
 <script>
   (function () {
     var t = window.SETTINGS.theme;
@@ -126,6 +127,14 @@
   ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 7px; }
   ::-webkit-scrollbar-track { background: transparent; }
 
+  .setup-only #app { display: none !important; }
+  .setrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; }
+  .setrow > span:first-child { font-weight: 500; }
+  .sep { border: 0; border-top: 1px solid var(--border); margin: 8px 0; }
+  .small { font: 400 12px var(--mono); color: var(--muted); text-align: right; word-break: break-all; }
+  button.btn.danger { color: var(--err); border-color: var(--err); }
+  button.btn.danger.solid { background: var(--err); color: #fff; }
+  .setup-only .wrap { max-width: 560px; padding-top: 9vh; }
   @media (max-width: 640px) {
     .item { grid-template-columns: 22px 54px 1fr 70px; } .src { display: none; }
     .opts { grid-template-columns: 1fr; }
@@ -140,17 +149,40 @@
       Video Grabber
     </div>
     <div class="tools">
-      <button class="btn" id="scBtn" style="display:none"></button>
-      <div class="seg" id="langSeg"><button data-l="en">EN</button><button data-l="fr">FR</button></div>
-      <button class="icon-btn" id="themeBtn" title="Theme" aria-label="Theme">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
-      </button>
+      <button class="icon-btn" id="gearBtn" title="Settings" aria-label="Settings"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
     </div>
   </header>
+
+  <section class="card" id="settingsCard" style="display:none">
+    <div class="card-head" style="margin-bottom:4px"><h2 data-i="set_title"></h2></div>
+    <div class="setrow"><span data-i="set_language"></span>
+      <div class="seg" id="langSeg"><button data-l="en">EN</button><button data-l="fr">FR</button></div></div>
+    <div class="setrow"><span data-i="set_theme"></span>
+      <div class="seg" id="themeSeg"><button data-th="light" data-i="th_light"></button><button data-th="dark" data-i="th_dark"></button></div></div>
+    <div class="setrow"><span data-i="set_version"></span><span class="small" id="setVer"></span></div>
+    <div id="setApp" style="display:none">
+      <hr class="sep">
+      <div class="setrow"><span data-i="set_location"></span><span class="small" id="setDir"></span></div>
+      <div class="opts2" style="margin-top:4px">
+        <label class="switch-label"><span class="switch"><input type="checkbox" id="gsDesktop"><span></span></span><span data-i="sc_desktop"></span></label>
+        <label class="switch-label"><span class="switch"><input type="checkbox" id="gsStart"><span></span></span><span data-i="sc_start"></span></label>
+        <span class="grow"></span>
+        <span class="tip" id="gsMsg" style="margin:0"></span>
+        <button class="btn" id="gsApply" data-i="sc_apply"></button>
+      </div>
+      <hr class="sep">
+      <div class="setrow" id="unRow"><span class="small" style="text-align:left" data-i="set_uninstall_hint"></span><button class="btn danger" id="unBtn" data-i="set_uninstall"></button></div>
+      <div id="unConfirm" style="display:none">
+        <p class="tip" style="margin:4px 0 12px" data-i="set_uninstall_q"></p>
+        <div class="row" style="justify-content:flex-end"><button class="btn" id="unCancel" data-i="set_cancel"></button><button class="btn danger solid" id="unGo" data-i="set_uninstall_go"></button></div>
+      </div>
+    </div>
+  </section>
 
   <section class="card" id="scCard" style="display:none">
     <div class="card-head" style="margin-bottom:6px"><h2 id="scTitle"></h2></div>
     <p class="tip" style="margin:0 0 14px" id="scText"></p>
+    <div id="scForm">
     <label class="field" for="scDir" data-i="sc_location"></label>
     <div class="row" style="margin-bottom:14px">
       <input id="scDir" type="text" class="mono grow" spellcheck="false">
@@ -164,8 +196,15 @@
       <button class="btn" id="scLater"></button>
       <button class="btn primary" id="scApply"></button>
     </div>
+    </div>
+    <div id="scDone" class="opts2" style="display:none;margin-top:0">
+      <span class="grow"></span>
+      <button class="btn" id="scClose"></button>
+      <button class="btn primary" id="scLaunch"></button>
+    </div>
   </section>
 
+  <div id="app">
   <section class="card">
     <div class="row">
       <div class="grow">
@@ -216,6 +255,7 @@
   </section>
 
   <div class="foot" data-i="disclaimer"></div>
+  </div>
 </div>
 
 <script>
@@ -230,12 +270,17 @@ const I18N = {
     ph_ready: "Ready", ph_scanning: "Scanning", ph_downloading: "Downloading", ph_done: "Done", ph_error: "Error",
     need_url: "Enter a page URL first.", need_sel: "Select at least one video.",
     disclaimer: "Only download content you are allowed to. You are responsible for site terms and copyright.",
-    browse: "Browse...", sc_btn: "Shortcuts", sc_btn_install: "Install",
+    browse: "Browse...",
     sc_title_install: "Install Video Grabber", sc_text_install: "Choose where to install it and how to find it again. No admin rights needed.",
     sc_title_manage: "Shortcuts", sc_text_manage: "Video Grabber is installed in {n}. You can uninstall it from Windows Settings > Apps.",
     sc_location: "Install location", sc_desktop: "Desktop shortcut", sc_start: "Start menu",
-    sc_install: "Install", sc_skip: "Run without installing", sc_apply: "Apply", sc_close: "Close",
-    sc_done: "Done", sc_done_install: "Installed. You can delete the downloaded file.", sc_work: "Working..."
+    sc_install: "Install", sc_apply: "Apply", sc_close: "Close",
+    set_title: "Settings", set_language: "Language", set_theme: "Theme", th_light: "Light", th_dark: "Dark", set_version: "Version",
+    set_location: "Installed in", set_uninstall: "Uninstall", set_uninstall_hint: "Remove Video Grabber from this PC. Your downloaded videos are kept.",
+    set_uninstall_q: "Remove Video Grabber, its shortcuts and its settings? Your downloaded videos will not be deleted.",
+    set_cancel: "Cancel", set_uninstall_go: "Yes, uninstall", set_uninstalling: "Uninstalling...",
+    sc_done: "Done", sc_work: "Working...", sc_finished: "Video Grabber is installed",
+    sc_text_done: "Installed in {n}. You can delete the downloaded file. Find it in the Start menu or on your desktop.", sc_launch: "Launch Video Grabber"
   },
   fr: {
     url_label: "URL de la page", scan: "Analyser la page", wait_label: "Durée (s)", out_label: "Enregistrer dans",
@@ -246,12 +291,17 @@ const I18N = {
     ph_ready: "Prêt", ph_scanning: "Analyse", ph_downloading: "Téléchargement", ph_done: "Terminé", ph_error: "Erreur",
     need_url: "Saisis d'abord l'URL d'une page.", need_sel: "Sélectionne au moins une vidéo.",
     disclaimer: "Ne télécharge que du contenu autorisé. Tu es responsable des conditions des sites et du droit d'auteur.",
-    browse: "Parcourir...", sc_btn: "Raccourcis", sc_btn_install: "Installer",
+    browse: "Parcourir...",
     sc_title_install: "Installer Video Grabber", sc_text_install: "Choisis où l'installer et comment le retrouver. Aucun droit administrateur requis.",
     sc_title_manage: "Raccourcis", sc_text_manage: "Video Grabber est installé dans {n}. Tu peux le désinstaller depuis Paramètres Windows > Applications.",
     sc_location: "Emplacement d'installation", sc_desktop: "Raccourci bureau", sc_start: "Menu Démarrer",
-    sc_install: "Installer", sc_skip: "Lancer sans installer", sc_apply: "Appliquer", sc_close: "Fermer",
-    sc_done: "Terminé", sc_done_install: "Installé. Tu peux supprimer le fichier téléchargé.", sc_work: "En cours..."
+    sc_install: "Installer", sc_apply: "Appliquer", sc_close: "Fermer",
+    set_title: "Réglages", set_language: "Langue", set_theme: "Thème", th_light: "Clair", th_dark: "Sombre", set_version: "Version",
+    set_location: "Installé dans", set_uninstall: "Désinstaller", set_uninstall_hint: "Retire Video Grabber de ce PC. Tes vidéos téléchargées sont conservées.",
+    set_uninstall_q: "Supprimer Video Grabber, ses raccourcis et ses réglages ? Tes vidéos téléchargées ne seront pas supprimées.",
+    set_cancel: "Annuler", set_uninstall_go: "Oui, désinstaller", set_uninstalling: "Désinstallation...",
+    sc_done: "Terminé", sc_work: "En cours...", sc_finished: "Video Grabber est installé",
+    sc_text_done: "Installé dans {n}. Tu peux supprimer le fichier téléchargé. Retrouve-le dans le menu Démarrer ou sur le bureau.", sc_launch: "Lancer Video Grabber"
   }
 };
 const $ = (s) => document.querySelector(s);
@@ -356,22 +406,26 @@ $("#dlBtn").onclick = async () => {
 $("#allBtn").onclick = () => { sel = new Set(S.items.map((i) => i.id)); shownVersion = -2; render(); };
 $("#folderBtn").onclick = () => api("/api/open-folder", { out: $("#out").value });
 $("#cdpOn").onchange = (e) => { $("#cdp").style.display = e.target.checked ? "" : "none"; };
-$("#themeBtn").onclick = () => {
-  const n = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
-  document.documentElement.setAttribute("data-theme", n); save("theme", n);
-};
+const markTheme = () => document.querySelectorAll("#themeSeg button").forEach((b) =>
+  b.classList.toggle("on", b.dataset.th === document.documentElement.getAttribute("data-theme")));
+document.querySelectorAll("#themeSeg button").forEach((b) => (b.onclick = () => {
+  document.documentElement.setAttribute("data-theme", b.dataset.th); save("theme", b.dataset.th); markTheme();
+}));
 document.querySelectorAll("#langSeg button").forEach((b) => (b.onclick = () => { lang = b.dataset.l; save("lang", lang); applyLang(); }));
 
-let inst = null, canBrowse = false, setupChecked = false;
+let inst = null, canBrowse = false, setupChecked = false, finishedDir = null;
+const setupOnly = !!window.SETUP_ONLY;
 const installed = () => !!(inst && inst.dir);
 
 function setupTexts() {
   if (!inst) return;
-  $("#scBtn").textContent = t(installed() ? "sc_btn" : "sc_btn_install");
+  $("#scClose").textContent = t("sc_close"); $("#scLaunch").textContent = t("sc_launch");
+  if (finishedDir) { $("#scTitle").textContent = t("sc_finished"); $("#scText").textContent = t("sc_text_done", finishedDir); return; }
   $("#scTitle").textContent = t(installed() ? "sc_title_manage" : "sc_title_install");
   $("#scText").textContent = installed() ? t("sc_text_manage", inst.dir) : t("sc_text_install");
   $("#scApply").textContent = t(installed() ? "sc_apply" : "sc_install");
-  $("#scLater").textContent = t(installed() ? "sc_close" : "sc_skip");
+  $("#scLater").textContent = t("sc_close");
+  $("#scLater").style.display = setupOnly ? "none" : "";
 }
 function openSetup() {
   const sc = inst.shortcuts || {};
@@ -388,26 +442,61 @@ function initInstall(s) {
   inst = s.install; canBrowse = s.can_browse;
   $("#outBrowse").style.display = canBrowse ? "" : "none";
   if (!inst.can || !inst.shortcuts) return;
-  $("#scBtn").style.display = "";
+  if (!setupChecked) { setupChecked = true; if (setupOnly) openSetup(); }
   setupTexts();
-  if (!setupChecked) { setupChecked = true; if (!installed() && !SET.skip_install) openSetup(); }
 }
-$("#scBtn").onclick = () => { $("#scCard").style.display === "none" ? openSetup() : ($("#scCard").style.display = "none"); };
-$("#scLater").onclick = () => {
-  if (!installed()) save("skip_install", true);
-  $("#scCard").style.display = "none";
+$("#scLater").onclick = () => { $("#scCard").style.display = "none"; };
+$("#scClose").onclick = () => api("/api/quit", {});
+$("#scLaunch").onclick = async () => {
+  const r = await api("/api/launch", {});
+  if (!r.ok) $("#scText").textContent = "[x] error";
 };
 $("#scBrowse").onclick = async () => { const r = await api("/api/pick-folder", { initial: $("#scDir").value }); if (r.path) $("#scDir").value = r.path; };
 $("#outBrowse").onclick = async () => { const r = await api("/api/pick-folder", { initial: $("#out").value }); if (r.path) { $("#out").value = r.path; save("out", r.path); } };
 $("#scApply").onclick = async () => {
-  const first = !installed();
   $("#scMsg").textContent = t("sc_work"); $("#scApply").disabled = true;
   let r = {};
   try { r = await api("/api/install", { dir: $("#scDir").value, desktop: $("#scDesktop").checked, start: $("#scStart").checked }); } catch (e) {}
   $("#scApply").disabled = false;
   if (!r.ok) { $("#scMsg").textContent = "[x] " + (r.error || "error"); return; }
-  $("#scMsg").textContent = t(first ? "sc_done_install" : "sc_done");
-  setTimeout(() => { $("#scMsg").textContent = ""; $("#scCard").style.display = "none"; }, first ? 4000 : 1500);
+  if (setupOnly) {
+    finishedDir = r.dir; $("#scForm").style.display = "none"; $("#scDone").style.display = ""; setupTexts();
+    return;
+  }
+  $("#scMsg").textContent = t("sc_done");
+  setTimeout(() => { $("#scMsg").textContent = ""; $("#scCard").style.display = "none"; }, 1500);
+};
+
+function fillSettings() {
+  markTheme();
+  $("#setVer").textContent = inst ? inst.version : "";
+  const on = !!(inst && inst.can && installed());
+  $("#setApp").style.display = on ? "" : "none";
+  if (!on) return;
+  $("#setDir").textContent = inst.dir;
+  const sc = inst.shortcuts || {};
+  $("#gsDesktop").checked = !!sc.Desktop; $("#gsStart").checked = !!sc.Start;
+  $("#gsMsg").textContent = ""; $("#unConfirm").style.display = "none"; $("#unRow").style.display = "";
+}
+$("#gearBtn").onclick = () => {
+  const c = $("#settingsCard"); const open = c.style.display === "none";
+  c.style.display = open ? "" : "none";
+  if (open) fillSettings();
+};
+$("#gsApply").onclick = async () => {
+  $("#gsMsg").textContent = t("sc_work"); $("#gsApply").disabled = true;
+  let r = {};
+  try { r = await api("/api/install", { dir: inst.dir, desktop: $("#gsDesktop").checked, start: $("#gsStart").checked }); } catch (e) {}
+  $("#gsApply").disabled = false;
+  $("#gsMsg").textContent = r.ok ? t("sc_done") : "[x] " + (r.error || "error");
+  setTimeout(() => { $("#gsMsg").textContent = ""; }, 2000);
+};
+$("#unBtn").onclick = () => { $("#unConfirm").style.display = ""; $("#unRow").style.display = "none"; };
+$("#unCancel").onclick = () => { $("#unConfirm").style.display = "none"; $("#unRow").style.display = ""; };
+$("#unGo").onclick = async () => {
+  $("#unGo").disabled = true; $("#unCancel").disabled = true;
+  $("#unConfirm").querySelector("p").textContent = t("set_uninstalling");
+  await api("/api/uninstall", {});
 };
 
 $("#out").value = SET.out || "";
