@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Video Grabber</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='15' fill='%2335479E'/%3E%3Cpath d='M24 17v30l25-15z' fill='white'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <script>
@@ -138,12 +139,26 @@
       Video Grabber
     </div>
     <div class="tools">
+      <button class="btn" id="scBtn" style="display:none"></button>
       <div class="seg" id="langSeg"><button data-l="en">EN</button><button data-l="fr">FR</button></div>
       <button class="icon-btn" id="themeBtn" title="Theme" aria-label="Theme">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
       </button>
     </div>
   </header>
+
+  <section class="card" id="scCard" style="display:none">
+    <div class="card-head" style="margin-bottom:6px"><h2 data-i="sc_title"></h2></div>
+    <p class="tip" style="margin:0 0 14px" data-i="sc_text"></p>
+    <div class="opts2" style="margin-top:0">
+      <label class="switch-label"><span class="switch"><input type="checkbox" id="scDesktop" checked><span></span></span><span data-i="sc_desktop"></span></label>
+      <label class="switch-label"><span class="switch"><input type="checkbox" id="scStart" checked><span></span></span><span data-i="sc_start"></span></label>
+      <span class="grow"></span>
+      <span id="scMsg" class="tip" style="margin:0"></span>
+      <button class="btn" id="scLater"></button>
+      <button class="btn primary" id="scApply"></button>
+    </div>
+  </section>
 
   <section class="card">
     <div class="row">
@@ -208,7 +223,9 @@ const I18N = {
     src_net: "network", src_dom: "page", n_found: "{n} found", n_sel: "{n} selected",
     ph_ready: "Ready", ph_scanning: "Scanning", ph_downloading: "Downloading", ph_done: "Done", ph_error: "Error",
     need_url: "Enter a page URL first.", need_sel: "Select at least one video.",
-    disclaimer: "Only download content you are allowed to. You are responsible for site terms and copyright."
+    disclaimer: "Only download content you are allowed to. You are responsible for site terms and copyright.",
+    sc_btn: "Shortcuts", sc_title: "Find Video Grabber easily", sc_text: "Add it to your Start menu and desktop so you can open it in one click. The app is copied to your user folder; nothing needs admin rights.",
+    sc_desktop: "Desktop shortcut", sc_start: "Start menu", sc_apply: "Apply", sc_later: "Not now", sc_done: "Done", sc_work: "Working..."
   },
   fr: {
     url_label: "URL de la page", scan: "Analyser la page", wait_label: "Durée (s)", out_label: "Enregistrer dans",
@@ -218,7 +235,9 @@ const I18N = {
     src_net: "réseau", src_dom: "page", n_found: "{n} trouvée(s)", n_sel: "{n} sélectionnée(s)",
     ph_ready: "Prêt", ph_scanning: "Analyse", ph_downloading: "Téléchargement", ph_done: "Terminé", ph_error: "Erreur",
     need_url: "Saisis d'abord l'URL d'une page.", need_sel: "Sélectionne au moins une vidéo.",
-    disclaimer: "Ne télécharge que du contenu autorisé. Tu es responsable des conditions des sites et du droit d'auteur."
+    disclaimer: "Ne télécharge que du contenu autorisé. Tu es responsable des conditions des sites et du droit d'auteur.",
+    sc_btn: "Raccourcis", sc_title: "Retrouve Video Grabber facilement", sc_text: "Ajoute-le au menu Démarrer et au bureau pour l'ouvrir en un clic. L'application est copiée dans ton dossier utilisateur ; aucun droit administrateur requis.",
+    sc_desktop: "Raccourci bureau", sc_start: "Menu Démarrer", sc_apply: "Appliquer", sc_later: "Plus tard", sc_done: "Terminé", sc_work: "En cours..."
   }
 };
 const $ = (s) => document.querySelector(s);
@@ -239,6 +258,7 @@ function applyLang() {
   document.querySelectorAll("[data-i]").forEach((e) => (e.textContent = t(e.dataset.i)));
   $("#scanBtn").textContent = t("scan"); $("#allBtn").textContent = t("select_all");
   $("#dlBtn").textContent = t("download"); $("#folderBtn").textContent = t("open_folder");
+  $("#scBtn").textContent = t("sc_btn"); $("#scApply").textContent = t("sc_apply"); $("#scLater").textContent = t("sc_later");
   document.querySelectorAll("#langSeg button").forEach((b) => b.classList.toggle("on", b.dataset.l === lang));
   shownVersion = -2; render();
 }
@@ -298,6 +318,7 @@ async function poll() {
     s.logs.forEach(addLog);
     if (newScan) { sel = new Set(S.items.length ? [S.items[0].id] : []); shownVersion = -2; }
     if (!$("#out").value) $("#out").value = s.default_out;
+    initShortcuts(s);
     render();
   } catch (e) {}
   setTimeout(poll, 500);
@@ -323,6 +344,29 @@ $("#themeBtn").onclick = () => {
   document.documentElement.setAttribute("data-theme", n); localStorage.setItem("theme", n);
 };
 document.querySelectorAll("#langSeg button").forEach((b) => (b.onclick = () => { lang = b.dataset.l; localStorage.setItem("lang", lang); applyLang(); }));
+
+let scInit = false;
+function initShortcuts(s) {
+  if (!s.can_install || !s.shortcuts) return;
+  $("#scBtn").style.display = "";
+  if (scInit) return;
+  scInit = true;
+  const has = s.shortcuts.Desktop || s.shortcuts.Start;
+  if (has) { $("#scDesktop").checked = s.shortcuts.Desktop; $("#scStart").checked = s.shortcuts.Start; }
+  else if (!localStorage.getItem("sc_later")) $("#scCard").style.display = "";
+}
+$("#scBtn").onclick = () => {
+  const c = $("#scCard"); const open = c.style.display === "none";
+  c.style.display = open ? "" : "none";
+  if (open && S.shortcuts) { $("#scDesktop").checked = S.shortcuts.Desktop; $("#scStart").checked = S.shortcuts.Start; }
+};
+$("#scLater").onclick = () => { localStorage.setItem("sc_later", "1"); $("#scCard").style.display = "none"; };
+$("#scApply").onclick = async () => {
+  $("#scMsg").textContent = t("sc_work"); $("#scApply").disabled = true;
+  await api("/api/shortcuts", { desktop: $("#scDesktop").checked, start: $("#scStart").checked });
+  $("#scApply").disabled = false; $("#scMsg").textContent = t("sc_done");
+  setTimeout(() => { $("#scMsg").textContent = ""; $("#scCard").style.display = "none"; }, 1500);
+};
 
 $("#out").value = localStorage.getItem("out") || "";
 applyLang(); poll();

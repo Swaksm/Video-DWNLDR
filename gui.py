@@ -34,6 +34,7 @@ class State:
         self.logs: list = []
         self.done = self.total = 0
         self.last_seen = time.monotonic()
+        self.shortcuts = None  # filled lazily: {"Desktop": bool, "Start": bool}
 
     def log(self, s):
         with self.lock:
@@ -122,6 +123,54 @@ def open_folder(path: str):
         subprocess.Popen(["xdg-open", str(p)])
 
 
+INSTALL_DIR = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "Programs" / "VideoGrabber"
+INSTALL_EXE = INSTALL_DIR / "VideoGrabber.exe"
+CAN_INSTALL = sys.platform.startswith("win") and getattr(sys, "frozen", False)
+
+_PS_SHORTCUTS = r"""
+$ws = New-Object -ComObject WScript.Shell
+$dirs = @{ Desktop = [Environment]::GetFolderPath('Desktop'); Start = (Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs') }
+foreach ($k in 'Desktop', 'Start') {
+  $lnk = Join-Path $dirs[$k] 'Video Grabber.lnk'
+  if ($env:VG_MODE -eq 'check') { Write-Output ($k + '=' + [int](Test-Path $lnk)); continue }
+  if ([Environment]::GetEnvironmentVariable('VG_' + $k) -eq '1') {
+    $s = $ws.CreateShortcut($lnk)
+    $s.TargetPath = $env:VG_EXE; $s.WorkingDirectory = $env:VG_DIR
+    $s.IconLocation = $env:VG_EXE + ',0'; $s.Description = 'Video Grabber'; $s.Save()
+  } else { Remove-Item $lnk -ErrorAction SilentlyContinue }
+}
+"""
+
+
+def _powershell(**env):
+    r = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", _PS_SHORTCUTS],
+                       env={**os.environ, **env}, capture_output=True, text=True, timeout=30,
+                       creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    return r.stdout
+
+
+def shortcut_status():
+    if not CAN_INSTALL:
+        return {"Desktop": False, "Start": False}
+    out = _powershell(VG_MODE="check")
+    return {k: v == "1" for k, v in (line.strip().split("=") for line in out.splitlines() if "=" in line)}
+
+
+def api_shortcuts(body):
+    if not CAN_INSTALL:
+        return {"ok": False}
+    want_desktop, want_start = bool(body.get("desktop")), bool(body.get("start"))
+    exe = Path(sys.executable).resolve()
+    if (want_desktop or want_start) and exe != INSTALL_EXE.resolve():
+        INSTALL_DIR.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(exe, INSTALL_EXE)  # shortcuts must survive the user deleting the downloaded file
+    target = INSTALL_EXE if INSTALL_EXE.exists() else exe
+    _powershell(VG_DESKTOP="1" if want_desktop else "0", VG_START="1" if want_start else "0",
+                VG_EXE=str(target), VG_DIR=str(target.parent))
+    S.shortcuts = shortcut_status()
+    return {"ok": True}
+
+
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, *a):
         pass
@@ -154,6 +203,7 @@ class Handler(BaseHTTPRequestHandler):
                     "items": [{k: it[k] for k in ("id", "kind", "ext", "size", "source", "url", "name")} for it in S.items],
                     "logs": S.logs[since:], "next": len(S.logs), "done": S.done, "total": S.total,
                     "default_out": str(Path.home() / "Downloads"),
+                    "can_install": CAN_INSTALL, "shortcuts": S.shortcuts,
                 }
             return self.send(200, json.dumps(payload))
         self.send(404, "{}")
@@ -168,6 +218,8 @@ class Handler(BaseHTTPRequestHandler):
                 res = api_scan(body)
             elif route == "/api/download":
                 res = api_download(body)
+            elif route == "/api/shortcuts":
+                res = api_shortcuts(body)
             elif route == "/api/open-folder":
                 open_folder(body.get("out", ""))
                 res = {"ok": True}
@@ -197,6 +249,7 @@ def main():
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     url = f"http://127.0.0.1:{server.server_address[1]}/"
     threading.Thread(target=server.serve_forever, daemon=True).start()
+    threading.Thread(target=lambda: setattr(S, "shortcuts", shortcut_status()), daemon=True).start()
 
     browser = find_browser()
     if browser:
