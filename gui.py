@@ -156,6 +156,58 @@ def shortcut_status():
     return {k: v == "1" for k, v in (line.strip().split("=") for line in out.splitlines() if "=" in line)}
 
 
+VERSION = "1.3.0"
+UNINSTALL_KEY = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\VideoGrabber"
+
+
+def register_uninstall():
+    """Add the app to Windows Settings > Apps so it can be uninstalled cleanly."""
+    import winreg
+
+    exe = str(INSTALL_EXE)
+    values = {
+        "DisplayName": "Video Grabber", "DisplayVersion": VERSION, "Publisher": "Swaks",
+        "DisplayIcon": exe + ",0", "InstallLocation": str(INSTALL_DIR),
+        "UninstallString": f'"{exe}" --uninstall',
+        "QuietUninstallString": f'"{exe}" --uninstall --quiet',
+    }
+    with winreg.CreateKey(winreg.HKEY_CURRENT_USER, UNINSTALL_KEY) as k:
+        for name, val in values.items():
+            winreg.SetValueEx(k, name, 0, winreg.REG_SZ, val)
+        for name in ("NoModify", "NoRepair"):
+            winreg.SetValueEx(k, name, 0, winreg.REG_DWORD, 1)
+        winreg.SetValueEx(k, "EstimatedSize", 0, winreg.REG_DWORD, int(INSTALL_EXE.stat().st_size / 1024))
+
+
+def _msgbox(text, flags):
+    import ctypes
+    return ctypes.windll.user32.MessageBoxW(0, text, "Video Grabber", flags)
+
+
+def uninstall(quiet=False):
+    """Remove shortcuts, the Settings entry and the installed copy. Downloads are never touched."""
+    import ctypes
+    import winreg
+
+    fr = (ctypes.windll.kernel32.GetUserDefaultUILanguage() & 0xFF) == 0x0C
+    if not quiet and _msgbox("Désinstaller Video Grabber ?\nTes vidéos téléchargées ne seront pas supprimées." if fr
+                             else "Uninstall Video Grabber?\nYour downloaded videos will not be deleted.", 0x24) != 6:
+        return
+    _powershell(VG_DESKTOP="0", VG_START="0")
+    try:
+        winreg.DeleteKey(winreg.HKEY_CURRENT_USER, UNINSTALL_KEY)
+    except OSError:
+        pass
+    if Path(sys.executable).resolve() == INSTALL_EXE.resolve():
+        # a running exe cannot delete itself: let a detached shell remove the folder once we exit
+        subprocess.Popen(f'cmd /c ping -n 4 127.0.0.1 >nul & rmdir /s /q "{INSTALL_DIR}"', shell=True,
+                         creationflags=subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS)
+    else:
+        shutil.rmtree(INSTALL_DIR, ignore_errors=True)
+    if not quiet:
+        _msgbox("Video Grabber a été désinstallé." if fr else "Video Grabber has been uninstalled.", 0x40)
+
+
 def api_shortcuts(body):
     if not CAN_INSTALL:
         return {"ok": False}
@@ -165,6 +217,8 @@ def api_shortcuts(body):
         INSTALL_DIR.mkdir(parents=True, exist_ok=True)
         shutil.copy2(exe, INSTALL_EXE)  # shortcuts must survive the user deleting the downloaded file
     target = INSTALL_EXE if INSTALL_EXE.exists() else exe
+    if INSTALL_EXE.exists():
+        register_uninstall()
     _powershell(VG_DESKTOP="1" if want_desktop else "0", VG_START="1" if want_start else "0",
                 VG_EXE=str(target), VG_DIR=str(target.parent))
     S.shortcuts = shortcut_status()
@@ -246,6 +300,10 @@ def find_browser():
 
 
 def main():
+    if "--uninstall" in sys.argv:
+        if CAN_INSTALL:
+            uninstall(quiet="--quiet" in sys.argv)
+        return
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     url = f"http://127.0.0.1:{server.server_address[1]}/"
     threading.Thread(target=server.serve_forever, daemon=True).start()
