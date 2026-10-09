@@ -21,6 +21,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 import core
+import installer
 
 BASE = Path(getattr(sys, "_MEIPASS", Path(__file__).parent))
 TOKEN = secrets.token_urlsafe(16)
@@ -123,106 +124,34 @@ def open_folder(path: str):
         subprocess.Popen(["xdg-open", str(p)])
 
 
-INSTALL_DIR = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "Programs" / "VideoGrabber"
-INSTALL_EXE = INSTALL_DIR / "VideoGrabber.exe"
-CAN_INSTALL = sys.platform.startswith("win") and getattr(sys, "frozen", False)
-
-_PS_SHORTCUTS = r"""
-$ws = New-Object -ComObject WScript.Shell
-$dirs = @{ Desktop = [Environment]::GetFolderPath('Desktop'); Start = (Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs') }
-foreach ($k in 'Desktop', 'Start') {
-  $lnk = Join-Path $dirs[$k] 'Video Grabber.lnk'
-  if ($env:VG_MODE -eq 'check') { Write-Output ($k + '=' + [int](Test-Path $lnk)); continue }
-  if ([Environment]::GetEnvironmentVariable('VG_' + $k) -eq '1') {
-    $s = $ws.CreateShortcut($lnk)
-    $s.TargetPath = $env:VG_EXE; $s.WorkingDirectory = $env:VG_DIR
-    $s.IconLocation = $env:VG_EXE + ',0'; $s.Description = 'Video Grabber'; $s.Save()
-  } else { Remove-Item $lnk -ErrorAction SilentlyContinue }
-}
-"""
+SETTINGS_FILE = installer.DATA_DIR / "settings.json"
+SETTING_KEYS = {"lang", "theme", "out", "wait", "skip_install"}
 
 
-def _powershell(**env):
-    r = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", _PS_SHORTCUTS],
-                       env={**os.environ, **env}, capture_output=True, text=True, timeout=30,
-                       creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
-    return r.stdout
-
-
-def shortcut_status():
-    if not CAN_INSTALL:
-        return {"Desktop": False, "Start": False}
-    out = _powershell(VG_MODE="check")
-    return {k: v == "1" for k, v in (line.strip().split("=") for line in out.splitlines() if "=" in line)}
-
-
-VERSION = "1.3.0"
-UNINSTALL_KEY = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\VideoGrabber"
-
-
-def register_uninstall():
-    """Add the app to Windows Settings > Apps so it can be uninstalled cleanly."""
-    import winreg
-
-    exe = str(INSTALL_EXE)
-    values = {
-        "DisplayName": "Video Grabber", "DisplayVersion": VERSION, "Publisher": "Swaks",
-        "DisplayIcon": exe + ",0", "InstallLocation": str(INSTALL_DIR),
-        "UninstallString": f'"{exe}" --uninstall',
-        "QuietUninstallString": f'"{exe}" --uninstall --quiet',
-    }
-    with winreg.CreateKey(winreg.HKEY_CURRENT_USER, UNINSTALL_KEY) as k:
-        for name, val in values.items():
-            winreg.SetValueEx(k, name, 0, winreg.REG_SZ, val)
-        for name in ("NoModify", "NoRepair"):
-            winreg.SetValueEx(k, name, 0, winreg.REG_DWORD, 1)
-        winreg.SetValueEx(k, "EstimatedSize", 0, winreg.REG_DWORD, int(INSTALL_EXE.stat().st_size / 1024))
-
-
-def _msgbox(text, flags):
-    import ctypes
-    return ctypes.windll.user32.MessageBoxW(0, text, "Video Grabber", flags)
-
-
-def uninstall(quiet=False):
-    """Remove shortcuts, the Settings entry and the installed copy. Downloads are never touched."""
-    import ctypes
-    import winreg
-
-    fr = (ctypes.windll.kernel32.GetUserDefaultUILanguage() & 0xFF) == 0x0C
-    if not quiet and _msgbox("Désinstaller Video Grabber ?\nTes vidéos téléchargées ne seront pas supprimées." if fr
-                             else "Uninstall Video Grabber?\nYour downloaded videos will not be deleted.", 0x24) != 6:
-        return
-    _powershell(VG_DESKTOP="0", VG_START="0")
+def load_settings() -> dict:
     try:
-        winreg.DeleteKey(winreg.HKEY_CURRENT_USER, UNINSTALL_KEY)
-    except OSError:
-        pass
-    if Path(sys.executable).resolve() == INSTALL_EXE.resolve():
-        # a running exe cannot delete itself: let a detached shell remove the folder once we exit
-        subprocess.Popen(f'cmd /c ping -n 4 127.0.0.1 >nul & rmdir /s /q "{INSTALL_DIR}"', shell=True,
-                         creationflags=subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS)
-    else:
-        shutil.rmtree(INSTALL_DIR, ignore_errors=True)
-    if not quiet:
-        _msgbox("Video Grabber a été désinstallé." if fr else "Video Grabber has been uninstalled.", 0x40)
+        data = json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))
+        return {k: v for k, v in data.items() if k in SETTING_KEYS}
+    except (OSError, ValueError, AttributeError):
+        return {}
 
 
-def api_shortcuts(body):
-    if not CAN_INSTALL:
+def save_settings(update: dict) -> dict:
+    data = {**load_settings(), **{k: v for k, v in update.items() if k in SETTING_KEYS}}
+    SETTINGS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    SETTINGS_FILE.write_text(json.dumps(data), encoding="utf-8")
+    return data
+
+
+def api_install(body):
+    if not installer.CAN_INSTALL:
         return {"ok": False}
-    want_desktop, want_start = bool(body.get("desktop")), bool(body.get("start"))
-    exe = Path(sys.executable).resolve()
-    if (want_desktop or want_start) and exe != INSTALL_EXE.resolve():
-        INSTALL_DIR.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(exe, INSTALL_EXE)  # shortcuts must survive the user deleting the downloaded file
-    target = INSTALL_EXE if INSTALL_EXE.exists() else exe
-    if INSTALL_EXE.exists():
-        register_uninstall()
-    _powershell(VG_DESKTOP="1" if want_desktop else "0", VG_START="1" if want_start else "0",
-                VG_EXE=str(target), VG_DIR=str(target.parent))
-    S.shortcuts = shortcut_status()
-    return {"ok": True}
+    try:
+        d = installer.install(body.get("dir"), bool(body.get("desktop")), bool(body.get("start")))
+    except (ValueError, OSError) as e:
+        return {"ok": False, "error": str(e)}
+    S.shortcuts = installer.shortcut_status()
+    return {"ok": True, "dir": str(d)}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -248,7 +177,8 @@ class Handler(BaseHTTPRequestHandler):
         if not self.allowed(False):
             return self.send(403, "{}")
         if u.path == "/":
-            html = (BASE / "ui.html").read_text(encoding="utf-8").replace("__TOKEN__", TOKEN)
+            settings = json.dumps(load_settings()).replace("</", "<\\/")
+            html = (BASE / "ui.html").read_text(encoding="utf-8").replace("__TOKEN__", TOKEN).replace("__SETTINGS__", settings)
             return self.send(200, html, "text/html")
         if u.path.startswith("/api/") and not self.allowed():
             return self.send(403, "{}")
@@ -261,7 +191,11 @@ class Handler(BaseHTTPRequestHandler):
                     "items": [{k: it[k] for k in ("id", "kind", "ext", "size", "source", "url", "name")} for it in S.items],
                     "logs": S.logs[since:], "next": len(S.logs), "done": S.done, "total": S.total,
                     "default_out": str(Path.home() / "Downloads"),
-                    "can_install": CAN_INSTALL, "shortcuts": S.shortcuts,
+                    "can_browse": installer.IS_WIN,
+                    "install": {
+                        "can": installer.CAN_INSTALL, "dir": str(installed_dir) if (installed_dir := installer.installed_dir()) else None,
+                        "default_dir": str(installer.DEFAULT_DIR), "shortcuts": S.shortcuts,
+                    },
                 }
             return self.send(200, json.dumps(payload))
         self.send(404, "{}")
@@ -276,8 +210,13 @@ class Handler(BaseHTTPRequestHandler):
                 res = api_scan(body)
             elif route == "/api/download":
                 res = api_download(body)
-            elif route == "/api/shortcuts":
-                res = api_shortcuts(body)
+            elif route == "/api/install":
+                res = api_install(body)
+            elif route == "/api/settings":
+                save_settings(body if isinstance(body, dict) else {})
+                res = {"ok": True}
+            elif route == "/api/pick-folder":
+                res = {"path": installer.pick_folder(str(body.get("initial", "")))}
             elif route == "/api/open-folder":
                 open_folder(body.get("out", ""))
                 res = {"ok": True}
@@ -305,13 +244,13 @@ def find_browser():
 
 def main():
     if "--uninstall" in sys.argv:
-        if CAN_INSTALL:
-            uninstall(quiet="--quiet" in sys.argv)
+        if installer.IS_WIN:
+            installer.uninstall(quiet="--quiet" in sys.argv)
         return
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     url = f"http://127.0.0.1:{server.server_address[1]}/"
     threading.Thread(target=server.serve_forever, daemon=True).start()
-    threading.Thread(target=lambda: setattr(S, "shortcuts", shortcut_status()), daemon=True).start()
+    threading.Thread(target=lambda: setattr(S, "shortcuts", installer.shortcut_status()), daemon=True).start()
 
     browser = find_browser()
     if browser:

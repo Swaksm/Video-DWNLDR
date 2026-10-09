@@ -7,9 +7,10 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='15' fill='%2335479E'/%3E%3Cpath d='M24 17v30l25-15z' fill='white'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script>window.SETTINGS = __SETTINGS__;</script>
 <script>
   (function () {
-    var t = localStorage.getItem("theme");
+    var t = window.SETTINGS.theme;
     if (!t) t = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
     document.documentElement.setAttribute("data-theme", t);
   })();
@@ -148,8 +149,13 @@
   </header>
 
   <section class="card" id="scCard" style="display:none">
-    <div class="card-head" style="margin-bottom:6px"><h2 data-i="sc_title"></h2></div>
-    <p class="tip" style="margin:0 0 14px" data-i="sc_text"></p>
+    <div class="card-head" style="margin-bottom:6px"><h2 id="scTitle"></h2></div>
+    <p class="tip" style="margin:0 0 14px" id="scText"></p>
+    <label class="field" for="scDir" data-i="sc_location"></label>
+    <div class="row" style="margin-bottom:14px">
+      <input id="scDir" type="text" class="mono grow" spellcheck="false">
+      <button class="btn" id="scBrowse" data-i="browse"></button>
+    </div>
     <div class="opts2" style="margin-top:0">
       <label class="switch-label"><span class="switch"><input type="checkbox" id="scDesktop" checked><span></span></span><span data-i="sc_desktop"></span></label>
       <label class="switch-label"><span class="switch"><input type="checkbox" id="scStart" checked><span></span></span><span data-i="sc_start"></span></label>
@@ -175,7 +181,7 @@
       </div>
       <div>
         <label class="field" for="out" data-i="out_label"></label>
-        <input id="out" type="text" class="mono" spellcheck="false">
+        <div class="row"><input id="out" type="text" class="mono grow" spellcheck="false"><button class="btn" id="outBrowse" data-i="browse" style="display:none"></button></div>
       </div>
     </div>
     <div class="opts2">
@@ -224,8 +230,12 @@ const I18N = {
     ph_ready: "Ready", ph_scanning: "Scanning", ph_downloading: "Downloading", ph_done: "Done", ph_error: "Error",
     need_url: "Enter a page URL first.", need_sel: "Select at least one video.",
     disclaimer: "Only download content you are allowed to. You are responsible for site terms and copyright.",
-    sc_btn: "Shortcuts", sc_title: "Find Video Grabber easily", sc_text: "Add it to your Start menu and desktop so you can open it in one click. The app is copied to your user folder; nothing needs admin rights.",
-    sc_desktop: "Desktop shortcut", sc_start: "Start menu", sc_apply: "Apply", sc_later: "Not now", sc_done: "Done", sc_work: "Working..."
+    browse: "Browse...", sc_btn: "Shortcuts", sc_btn_install: "Install",
+    sc_title_install: "Install Video Grabber", sc_text_install: "Choose where to install it and how to find it again. No admin rights needed.",
+    sc_title_manage: "Shortcuts", sc_text_manage: "Video Grabber is installed in {n}. You can uninstall it from Windows Settings > Apps.",
+    sc_location: "Install location", sc_desktop: "Desktop shortcut", sc_start: "Start menu",
+    sc_install: "Install", sc_skip: "Run without installing", sc_apply: "Apply", sc_close: "Close",
+    sc_done: "Done", sc_done_install: "Installed. You can delete the downloaded file.", sc_work: "Working..."
   },
   fr: {
     url_label: "URL de la page", scan: "Analyser la page", wait_label: "Durée (s)", out_label: "Enregistrer dans",
@@ -236,12 +246,18 @@ const I18N = {
     ph_ready: "Prêt", ph_scanning: "Analyse", ph_downloading: "Téléchargement", ph_done: "Terminé", ph_error: "Erreur",
     need_url: "Saisis d'abord l'URL d'une page.", need_sel: "Sélectionne au moins une vidéo.",
     disclaimer: "Ne télécharge que du contenu autorisé. Tu es responsable des conditions des sites et du droit d'auteur.",
-    sc_btn: "Raccourcis", sc_title: "Retrouve Video Grabber facilement", sc_text: "Ajoute-le au menu Démarrer et au bureau pour l'ouvrir en un clic. L'application est copiée dans ton dossier utilisateur ; aucun droit administrateur requis.",
-    sc_desktop: "Raccourci bureau", sc_start: "Menu Démarrer", sc_apply: "Appliquer", sc_later: "Plus tard", sc_done: "Terminé", sc_work: "En cours..."
+    browse: "Parcourir...", sc_btn: "Raccourcis", sc_btn_install: "Installer",
+    sc_title_install: "Installer Video Grabber", sc_text_install: "Choisis où l'installer et comment le retrouver. Aucun droit administrateur requis.",
+    sc_title_manage: "Raccourcis", sc_text_manage: "Video Grabber est installé dans {n}. Tu peux le désinstaller depuis Paramètres Windows > Applications.",
+    sc_location: "Emplacement d'installation", sc_desktop: "Raccourci bureau", sc_start: "Menu Démarrer",
+    sc_install: "Installer", sc_skip: "Lancer sans installer", sc_apply: "Appliquer", sc_close: "Fermer",
+    sc_done: "Terminé", sc_done_install: "Installé. Tu peux supprimer le fichier téléchargé.", sc_work: "En cours..."
   }
 };
 const $ = (s) => document.querySelector(s);
-let lang = localStorage.getItem("lang") || "en";
+const SET = window.SETTINGS || {};
+const save = (k, v) => { SET[k] = v; api("/api/settings", { [k]: v }).catch(() => {}); };
+let lang = SET.lang || "en";
 let S = { phase: "ready", busy: false, items: [], version: -1, done: 0, total: 0 };
 let sel = new Set(), logNext = 0, shownVersion = -2;
 
@@ -258,7 +274,7 @@ function applyLang() {
   document.querySelectorAll("[data-i]").forEach((e) => (e.textContent = t(e.dataset.i)));
   $("#scanBtn").textContent = t("scan"); $("#allBtn").textContent = t("select_all");
   $("#dlBtn").textContent = t("download"); $("#folderBtn").textContent = t("open_folder");
-  $("#scBtn").textContent = t("sc_btn"); $("#scApply").textContent = t("sc_apply"); $("#scLater").textContent = t("sc_later");
+  setupTexts();
   document.querySelectorAll("#langSeg button").forEach((b) => b.classList.toggle("on", b.dataset.l === lang));
   shownVersion = -2; render();
 }
@@ -318,7 +334,7 @@ async function poll() {
     s.logs.forEach(addLog);
     if (newScan) { sel = new Set(S.items.length ? [S.items[0].id] : []); shownVersion = -2; }
     if (!$("#out").value) $("#out").value = s.default_out;
-    initShortcuts(s);
+    initInstall(s);
     render();
   } catch (e) {}
   setTimeout(poll, 500);
@@ -327,13 +343,14 @@ async function poll() {
 $("#scanBtn").onclick = async () => {
   const url = $("#url").value.trim();
   if (!url) return addLog("[x] " + t("need_url"));
-  localStorage.setItem("out", $("#out").value);
+  save("out", $("#out").value);
+  save("wait", +$("#wait").value || 20);
   await api("/api/scan", { url, lang, wait: +$("#wait").value || 20, cdp: $("#cdpOn").checked ? $("#cdp").value : null });
 };
 $("#url").addEventListener("keydown", (e) => { if (e.key === "Enter" && !S.busy) $("#scanBtn").click(); });
 $("#dlBtn").onclick = async () => {
   if (!sel.size) return addLog("[x] " + t("need_sel"));
-  localStorage.setItem("out", $("#out").value);
+  save("out", $("#out").value);
   await api("/api/download", { ids: [...sel], out: $("#out").value, lang });
 };
 $("#allBtn").onclick = () => { sel = new Set(S.items.map((i) => i.id)); shownVersion = -2; render(); };
@@ -341,34 +358,60 @@ $("#folderBtn").onclick = () => api("/api/open-folder", { out: $("#out").value }
 $("#cdpOn").onchange = (e) => { $("#cdp").style.display = e.target.checked ? "" : "none"; };
 $("#themeBtn").onclick = () => {
   const n = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
-  document.documentElement.setAttribute("data-theme", n); localStorage.setItem("theme", n);
+  document.documentElement.setAttribute("data-theme", n); save("theme", n);
 };
-document.querySelectorAll("#langSeg button").forEach((b) => (b.onclick = () => { lang = b.dataset.l; localStorage.setItem("lang", lang); applyLang(); }));
+document.querySelectorAll("#langSeg button").forEach((b) => (b.onclick = () => { lang = b.dataset.l; save("lang", lang); applyLang(); }));
 
-let scInit = false;
-function initShortcuts(s) {
-  if (!s.can_install || !s.shortcuts) return;
-  $("#scBtn").style.display = "";
-  if (scInit) return;
-  scInit = true;
-  const has = s.shortcuts.Desktop || s.shortcuts.Start;
-  if (has) { $("#scDesktop").checked = s.shortcuts.Desktop; $("#scStart").checked = s.shortcuts.Start; }
-  else if (!localStorage.getItem("sc_later")) $("#scCard").style.display = "";
+let inst = null, canBrowse = false, setupChecked = false;
+const installed = () => !!(inst && inst.dir);
+
+function setupTexts() {
+  if (!inst) return;
+  $("#scBtn").textContent = t(installed() ? "sc_btn" : "sc_btn_install");
+  $("#scTitle").textContent = t(installed() ? "sc_title_manage" : "sc_title_install");
+  $("#scText").textContent = installed() ? t("sc_text_manage", inst.dir) : t("sc_text_install");
+  $("#scApply").textContent = t(installed() ? "sc_apply" : "sc_install");
+  $("#scLater").textContent = t(installed() ? "sc_close" : "sc_skip");
 }
-$("#scBtn").onclick = () => {
-  const c = $("#scCard"); const open = c.style.display === "none";
-  c.style.display = open ? "" : "none";
-  if (open && S.shortcuts) { $("#scDesktop").checked = S.shortcuts.Desktop; $("#scStart").checked = S.shortcuts.Start; }
+function openSetup() {
+  const sc = inst.shortcuts || {};
+  $("#scDir").value = inst.dir || inst.default_dir;
+  $("#scDir").readOnly = installed();
+  $("#scBrowse").style.display = canBrowse && !installed() ? "" : "none";
+  $("#scDesktop").checked = installed() ? !!sc.Desktop : true;
+  $("#scStart").checked = installed() ? !!sc.Start : true;
+  $("#scMsg").textContent = "";
+  setupTexts();
+  $("#scCard").style.display = "";
+}
+function initInstall(s) {
+  inst = s.install; canBrowse = s.can_browse;
+  $("#outBrowse").style.display = canBrowse ? "" : "none";
+  if (!inst.can || !inst.shortcuts) return;
+  $("#scBtn").style.display = "";
+  setupTexts();
+  if (!setupChecked) { setupChecked = true; if (!installed() && !SET.skip_install) openSetup(); }
+}
+$("#scBtn").onclick = () => { $("#scCard").style.display === "none" ? openSetup() : ($("#scCard").style.display = "none"); };
+$("#scLater").onclick = () => {
+  if (!installed()) save("skip_install", true);
+  $("#scCard").style.display = "none";
 };
-$("#scLater").onclick = () => { localStorage.setItem("sc_later", "1"); $("#scCard").style.display = "none"; };
+$("#scBrowse").onclick = async () => { const r = await api("/api/pick-folder", { initial: $("#scDir").value }); if (r.path) $("#scDir").value = r.path; };
+$("#outBrowse").onclick = async () => { const r = await api("/api/pick-folder", { initial: $("#out").value }); if (r.path) { $("#out").value = r.path; save("out", r.path); } };
 $("#scApply").onclick = async () => {
+  const first = !installed();
   $("#scMsg").textContent = t("sc_work"); $("#scApply").disabled = true;
-  await api("/api/shortcuts", { desktop: $("#scDesktop").checked, start: $("#scStart").checked });
-  $("#scApply").disabled = false; $("#scMsg").textContent = t("sc_done");
-  setTimeout(() => { $("#scMsg").textContent = ""; $("#scCard").style.display = "none"; }, 1500);
+  let r = {};
+  try { r = await api("/api/install", { dir: $("#scDir").value, desktop: $("#scDesktop").checked, start: $("#scStart").checked }); } catch (e) {}
+  $("#scApply").disabled = false;
+  if (!r.ok) { $("#scMsg").textContent = "[x] " + (r.error || "error"); return; }
+  $("#scMsg").textContent = t(first ? "sc_done_install" : "sc_done");
+  setTimeout(() => { $("#scMsg").textContent = ""; $("#scCard").style.display = "none"; }, first ? 4000 : 1500);
 };
 
-$("#out").value = localStorage.getItem("out") || "";
+$("#out").value = SET.out || "";
+if (SET.wait) $("#wait").value = SET.wait;
 applyLang(); poll();
 </script>
 </body>
