@@ -25,6 +25,12 @@ Double-clic sur `VideoGrabber.exe` (ou `python gui.py`).
 
 L'application tourne en local (rien n'est envoyé ailleurs) et s'ouvre dans sa propre fenêtre Chrome/Edge.
 
+## Raccourcis et désinstallation (Windows)
+
+À la première ouverture de `VideoGrabber.exe`, l'application propose d'ajouter une entrée **menu Démarrer** et un **raccourci bureau** (bouton « Raccourcis » en haut pour le faire plus tard). Elle est copiée dans `%LOCALAPPDATA%\Programs\VideoGrabber`, sans droits administrateur.
+
+Pour désinstaller : **Paramètres > Applications > Applications installées > Video Grabber > Désinstaller**, ou `VideoGrabber.exe --uninstall`, ou double-clic sur `uninstall.bat`. Tes vidéos téléchargées ne sont jamais supprimées.
+
 ## Ligne de commande
 
 ```bash
@@ -65,6 +71,15 @@ sh build.sh      # Mac / Linux
 ```
 
 Les résultats sont dans `dist/` (`VideoGrabber`, `video-grabber-cli`).
+
+## Tests
+
+```bash
+pip install pytest
+python -m pytest
+```
+
+Les mêmes tests tournent sur GitHub Actions (Linux + Windows) à chaque push ; le workflow construit aussi les exécutables Windows.
 
 ## Si Cloudflare bloque
 

@@ -25,6 +25,12 @@ Double-click `VideoGrabber.exe` (or run `python gui.py`).
 
 The app runs locally (nothing is sent anywhere) and opens in its own Chrome/Edge window.
 
+## Shortcuts and uninstall (Windows)
+
+The first time you open `VideoGrabber.exe` it offers to add a **Start menu** entry and a **desktop shortcut** (button "Shortcuts" at the top to do it later). The app is copied to `%LOCALAPPDATA%\Programs\VideoGrabber`, no admin rights needed.
+
+To uninstall: **Settings > Apps > Installed apps > Video Grabber > Uninstall**, or run `VideoGrabber.exe --uninstall`, or double-click `uninstall.bat`. Your downloaded videos are never deleted.
+
 ## Command line
 
 ```bash
@@ -65,6 +71,15 @@ sh build.sh      # Mac / Linux
 ```
 
 Results are in `dist/` (`VideoGrabber`, `video-grabber-cli`).
+
+## Tests
+
+```bash
+pip install pytest
+python -m pytest
+```
+
+The same tests run on GitHub Actions (Linux + Windows) on every push; the workflow also builds the Windows executables.
 
 ## If Cloudflare blocks you
 
