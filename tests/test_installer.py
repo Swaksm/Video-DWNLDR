@@ -77,3 +77,23 @@ def test_install_refused_when_not_a_packaged_windows_app(ui):
 def test_pick_folder_off_windows_returns_empty(ui):
     status, data = call(ui, "POST", "/api/pick-folder", H, {"initial": ""})
     assert status == 200 and json.loads(data)["path"] == ""
+
+
+def test_uninstall_and_launch_refused_when_not_installed(ui):
+    for route in ("/api/uninstall", "/api/launch"):
+        status, data = call(ui, "POST", route, H, {})
+        assert status == 200 and json.loads(data)["ok"] is False
+
+
+def test_uninstall_requires_token(ui):
+    assert call(ui, "POST", "/api/uninstall", {}, {})[0] == 403
+
+
+def test_page_is_not_setup_only_when_not_a_packaged_app(ui):
+    _, html = call(ui, "GET", "/")
+    assert "SETUP_ONLY = false" in html and "__SETUP__" not in html
+
+
+def test_state_exposes_version(ui):
+    _, data = call(ui, "GET", "/api/state?since=0", H)
+    assert json.loads(data)["install"]["version"] == installer.VERSION
