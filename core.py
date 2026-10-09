@@ -1,6 +1,7 @@
 """Shared engine for the CLI and the GUI: detect videos on a page and download them."""
 
 import asyncio
+import os
 import re
 import tempfile
 import time
@@ -176,7 +177,10 @@ def parse_choice(raw: str, items: list):
     if raw in ALL_WORDS:
         return list(items)
     try:
-        return [items[int(x) - 1] for x in re.split(r"[,\s]+", raw) if x and int(x) > 0]
+        nums = [int(x) for x in re.split(r"[,\s]+", raw) if x]
+        if any(n < 1 for n in nums):
+            return None
+        return [items[n - 1] for n in nums]
     except (ValueError, IndexError):
         return None
 
@@ -200,7 +204,7 @@ async def _open_browser(p, cdp, t):
     last = None
     for channel in ("chrome", "msedge", None):  # system browsers first: no extra download needed
         try:
-            kw = {"headless": False}
+            kw = {"headless": os.environ.get("VG_HEADLESS") == "1"}  # headless only for CI/tests
             if channel:
                 kw["channel"] = channel
             browser = await p.chromium.launch(**kw)

@@ -245,10 +245,14 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         u = urlparse(self.path)
-        if u.path == "/" and self.allowed(False):
+        if not self.allowed(False):
+            return self.send(403, "{}")
+        if u.path == "/":
             html = (BASE / "ui.html").read_text(encoding="utf-8").replace("__TOKEN__", TOKEN)
             return self.send(200, html, "text/html")
-        if u.path == "/api/state" and self.allowed():
+        if u.path.startswith("/api/") and not self.allowed():
+            return self.send(403, "{}")
+        if u.path == "/api/state":
             S.last_seen = time.monotonic()
             since = int(parse_qs(u.query).get("since", ["0"])[0])
             with S.lock:
