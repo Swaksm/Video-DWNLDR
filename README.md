@@ -27,11 +27,11 @@ The app runs locally (nothing is sent anywhere) and opens in its own Chrome/Edge
 
 ## Install and uninstall (Windows)
 
-The first time you open `VideoGrabber.exe`, a setup panel appears: choose the **install location** (Browse...), and keep or untick **Desktop shortcut** and **Start menu** (both ticked by default), then click **Install**. Or click "Run without installing" to use it as a portable file. No admin rights needed. Default location: `%LOCALAPPDATA%\Programs\VideoGrabber`; the app always goes into a folder named `VideoGrabber`.
+Opening `VideoGrabber.exe` for the first time shows **only the installer**: choose the **install location** (Browse...), keep or untick **Desktop shortcut** and **Start menu** (both ticked by default), then click **Install**, then **Launch Video Grabber**. No admin rights needed. Default location: `%LOCALAPPDATA%\Programs\VideoGrabber`; the app always goes into a folder named `VideoGrabber`. After installing you can delete the downloaded file. (For a portable, no-install tool use `video-grabber-cli.exe`.)
 
-Later, the **Shortcuts** button at the top lets you add or remove the shortcuts. After installing you can delete the downloaded file.
+The **gear** icon (top right) opens the settings: language, light/dark theme, shortcuts, and **Uninstall**.
 
-To uninstall: **Settings > Apps > Installed apps > Video Grabber > Uninstall**, or run `VideoGrabber.exe --uninstall`, or double-click `uninstall.bat`. Your downloaded videos are never deleted.
+Other ways to uninstall: **Windows Settings > Apps > Installed apps > Video Grabber > Uninstall**, `VideoGrabber.exe --uninstall`, or `uninstall.bat`. Your downloaded videos are never deleted.
 
 Your preferences (language, theme, folders) are stored in `%APPDATA%\VideoGrabber` and removed on uninstall.
 

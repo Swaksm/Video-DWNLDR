@@ -27,11 +27,11 @@ L'application tourne en local (rien n'est envoyé ailleurs) et s'ouvre dans sa p
 
 ## Installation et désinstallation (Windows)
 
-À la première ouverture de `VideoGrabber.exe`, un panneau d'installation apparaît : choisis l'**emplacement** (Parcourir...), garde ou décoche **Raccourci bureau** et **Menu Démarrer** (cochés par défaut), puis clique sur **Installer**. Ou clique sur « Lancer sans installer » pour l'utiliser en version portable. Aucun droit administrateur requis. Emplacement par défaut : `%LOCALAPPDATA%\Programs\VideoGrabber` ; l'application va toujours dans un dossier nommé `VideoGrabber`.
+La première ouverture de `VideoGrabber.exe` n'affiche **que l'installateur** : choisis l'**emplacement** (Parcourir...), garde ou décoche **Raccourci bureau** et **Menu Démarrer** (cochés par défaut), clique sur **Installer**, puis sur **Lancer Video Grabber**. Aucun droit administrateur requis. Emplacement par défaut : `%LOCALAPPDATA%\Programs\VideoGrabber` ; l'application va toujours dans un dossier nommé `VideoGrabber`. Après l'installation, tu peux supprimer le fichier téléchargé. (Pour un outil portable sans installation, utilise `video-grabber-cli.exe`.)
 
-Plus tard, le bouton **Raccourcis** en haut permet d'ajouter ou retirer les raccourcis. Après l'installation, tu peux supprimer le fichier téléchargé.
+L'icône **engrenage** (en haut à droite) ouvre les réglages : langue, thème clair/sombre, raccourcis et **Désinstaller**.
 
-Pour désinstaller : **Paramètres > Applications > Applications installées > Video Grabber > Désinstaller**, ou `VideoGrabber.exe --uninstall`, ou double-clic sur `uninstall.bat`. Tes vidéos téléchargées ne sont jamais supprimées.
+Autres façons de désinstaller : **Paramètres Windows > Applications > Applications installées > Video Grabber > Désinstaller**, `VideoGrabber.exe --uninstall`, ou `uninstall.bat`. Tes vidéos téléchargées ne sont jamais supprimées.
 
 Tes préférences (langue, thème, dossiers) sont dans `%APPDATA%\VideoGrabber` et supprimées à la désinstallation.
 
