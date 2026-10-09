@@ -1,255 +1,220 @@
 #!/usr/bin/env python3
-"""Video Grabber - graphical interface. Run: python gui.py"""
+"""Video Grabber - graphical app. Run: python gui.py
+
+Starts a tiny local web server (127.0.0.1 only) and opens the UI in a Chrome/Edge app window.
+"""
 
 import asyncio
+import hmac
+import json
 import os
-import queue
+import secrets
+import shutil
 import subprocess
 import sys
+import tempfile
 import threading
-import tkinter as tk
+import time
+import webbrowser
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from tkinter import filedialog, messagebox, ttk
+from urllib.parse import parse_qs, urlparse
 
 import core
 
+BASE = Path(getattr(sys, "_MEIPASS", Path(__file__).parent))
+TOKEN = secrets.token_urlsafe(16)
 
-class App:
-    def __init__(self, root: tk.Tk):
-        self.root = root
-        self.t = core.Translator("en")
-        self.q: queue.Queue = queue.Queue()
-        self.items: list = []
-        self.session = None  # (page_url, user_agent, cookies) of the last scan
-        self.bound: list = []  # (widget, option, key) re-translated on language change
 
-        self.url = tk.StringVar()
-        self.wait = tk.IntVar(value=20)
-        self.out = tk.StringVar(value=str(Path.home() / "Downloads"))
-        self.use_cdp = tk.BooleanVar(value=False)
-        self.cdp = tk.StringVar(value="http://localhost:9222")
-        self.status = tk.StringVar()
+class State:
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.phase, self.busy = "ready", False
+        self.items, self.version, self.session = [], 0, None
+        self.logs: list = []
+        self.done = self.total = 0
+        self.last_seen = time.monotonic()
 
-        self.build()
-        self.apply_lang()
-        self.status.set(self.t("ready"))
-        self.root.after(100, self.pump)
+    def log(self, s):
+        with self.lock:
+            self.logs.append(str(s))
 
-    # ---------- layout ----------
-    def label(self, parent, key, **kw):
-        w = ttk.Label(parent, **kw)
-        self.bound.append((w, "text", key))
-        return w
+    def progress(self, d, t):
+        self.done, self.total = d, t
 
-    def button(self, parent, key, command, **kw):
-        w = ttk.Button(parent, command=command, **kw)
-        self.bound.append((w, "text", key))
-        return w
 
-    def build(self):
-        r = self.root
-        r.geometry("920x620")
-        r.minsize(760, 520)
-        pad = {"padx": 8, "pady": 4}
+S = State()
 
-        top = ttk.Frame(r)
-        top.pack(fill="x", **pad)
-        top.columnconfigure(1, weight=1)
 
-        self.label(top, "url_label").grid(row=0, column=0, sticky="w")
-        entry = ttk.Entry(top, textvariable=self.url)
-        entry.grid(row=0, column=1, sticky="ew", padx=6)
-        entry.bind("<Return>", lambda e: self.scan())
-        entry.focus()
-        self.scan_btn = self.button(top, "scan_btn", self.scan)
-        self.scan_btn.grid(row=0, column=2)
+def run_job(factory, phase, on_ok, t):
+    with S.lock:
+        if S.busy:
+            return False
+        S.busy, S.phase, S.done, S.total = True, phase, 0, 0
 
-        self.label(top, "out_label").grid(row=1, column=0, sticky="w")
-        ttk.Entry(top, textvariable=self.out).grid(row=1, column=1, sticky="ew", padx=6, pady=4)
-        row1 = ttk.Frame(top)
-        row1.grid(row=1, column=2)
-        self.button(row1, "browse", self.browse).pack(side="left")
-        self.button(row1, "open_folder", self.open_folder).pack(side="left", padx=(4, 0))
-
-        opts = ttk.Frame(r)
-        opts.pack(fill="x", **pad)
-        self.label(opts, "wait_label").pack(side="left")
-        ttk.Spinbox(opts, from_=5, to=300, width=5, textvariable=self.wait).pack(side="left", padx=(4, 16))
-        cb = ttk.Checkbutton(opts, variable=self.use_cdp)
-        self.bound.append((cb, "text", "use_cdp"))
-        cb.pack(side="left")
-        ttk.Entry(opts, textvariable=self.cdp, width=24).pack(side="left", padx=6)
-        self.lang_box = ttk.Combobox(opts, state="readonly", width=10, values=[core.TEXTS[c]["lang_name"] for c in core.LANGS])
-        self.lang_box.current(0)
-        self.lang_box.pack(side="right")
-        self.lang_box.bind("<<ComboboxSelected>>", self.on_lang)
-        self.label(opts, "lang_label").pack(side="right", padx=6)
-
-        self.label(r, "tip", foreground="#666").pack(fill="x", padx=8)
-
-        mid = ttk.Frame(r)
-        mid.pack(fill="both", expand=True, **pad)
-        cols = ("type", "size", "source", "url")
-        self.tree = ttk.Treeview(mid, columns=cols, show="headings", selectmode="extended", height=8)
-        for c, w in zip(cols, (110, 80, 70, 600)):
-            self.tree.column(c, width=w, anchor="w", stretch=(c == "url"))
-        sb = ttk.Scrollbar(mid, orient="vertical", command=self.tree.yview)
-        self.tree.configure(yscrollcommand=sb.set)
-        self.tree.pack(side="left", fill="both", expand=True)
-        sb.pack(side="right", fill="y")
-
-        actions = ttk.Frame(r)
-        actions.pack(fill="x", **pad)
-        self.dl_btn = self.button(actions, "download_btn", self.download)
-        self.dl_btn.pack(side="left")
-        self.button(actions, "select_all", lambda: self.tree.selection_set(self.tree.get_children())).pack(side="left", padx=6)
-        self.bar = ttk.Progressbar(actions, maximum=100)
-        self.bar.pack(side="left", fill="x", expand=True, padx=8)
-
-        self.label(r, "log_label").pack(anchor="w", padx=8)
-        logf = ttk.Frame(r)
-        logf.pack(fill="both", expand=True, padx=8, pady=(0, 4))
-        self.logbox = tk.Text(logf, height=8, state="disabled", wrap="word")
-        lsb = ttk.Scrollbar(logf, orient="vertical", command=self.logbox.yview)
-        self.logbox.configure(yscrollcommand=lsb.set)
-        self.logbox.pack(side="left", fill="both", expand=True)
-        lsb.pack(side="right", fill="y")
-
-        ttk.Label(r, textvariable=self.status, relief="sunken", anchor="w").pack(fill="x", side="bottom")
-
-    def apply_lang(self):
-        for w, opt, key in self.bound:
-            w.configure(**{opt: self.t(key)})
-        for c, key in zip(("type", "size", "source", "url"), ("col_type", "col_size", "col_source", "col_url")):
-            self.tree.heading(c, text=self.t(key))
-        self.root.title(self.t("title"))
-        self.refresh_rows()
-
-    def on_lang(self, _e=None):
-        self.t.set_lang(core.LANGS[self.lang_box.current()])
-        self.apply_lang()
-
-    # ---------- actions ----------
-    def browse(self):
-        d = filedialog.askdirectory(initialdir=self.out.get() or str(Path.home()))
-        if d:
-            self.out.set(d)
-
-    def open_folder(self):
-        p = Path(self.out.get())
-        p.mkdir(parents=True, exist_ok=True)
-        if sys.platform.startswith("win"):
-            os.startfile(p)
-        elif sys.platform == "darwin":
-            subprocess.Popen(["open", str(p)])
-        else:
-            subprocess.Popen(["xdg-open", str(p)])
-
-    def log(self, text: str):
-        self.q.put(("log", text))
-
-    def progress(self, done: int, total: int):
-        self.q.put(("progress", done, total))
-
-    def set_busy(self, busy: bool):
-        state = "disabled" if busy else "normal"
-        self.scan_btn.configure(state=state)
-        self.dl_btn.configure(state=state)
-
-    def run_bg(self, factory, on_done):
-        self.set_busy(True)
-
-        def work():
-            try:
-                self.q.put(("done", on_done, asyncio.run(factory())))
-            except Exception as e:
-                self.q.put(("error", str(e)))
-
-        threading.Thread(target=work, daemon=True).start()
-
-    def scan(self):
-        url = self.url.get().strip()
-        if not url:
-            messagebox.showinfo(self.t("title"), self.t("no_url"))
-            return
-        if "://" not in url:
-            url = "https://" + url
-            self.url.set(url)
-        cdp = self.cdp.get().strip() if self.use_cdp.get() else None
-        self.items, self.session = [], None
-        self.refresh_rows()
-        self.status.set(self.t("scanning"))
-        self.bar.configure(value=0)
-
-        async def job():
-            items, ua, cookies = await core.detect(self.t, url, cdp, int(self.wait.get()), self.log)
-            return url, items, ua, cookies
-
-        self.run_bg(job, self.on_scanned)
-
-    def on_scanned(self, res):
-        url, items, ua, cookies = res
-        self.items, self.session = items, (url, ua, cookies)
-        self.refresh_rows()
-        if items:
-            self.status.set(self.t("found_n", n=len(items)))
-            self.tree.selection_set(self.tree.get_children()[:1])
-        else:
-            self.status.set(self.t("ready"))
-            self.log(self.t("none"))
-
-    def refresh_rows(self):
-        self.tree.delete(*self.tree.get_children())
-        for i, it in enumerate(self.items):
-            self.tree.insert("", "end", iid=str(i), values=(
-                core.label_for(self.t, it), core.human(it["size"]), self.t(it["source"]), it["url"]))
-
-    def download(self):
-        sel = [self.items[int(i)] for i in self.tree.selection()]
-        if not sel or not self.session:
-            messagebox.showinfo(self.t("title"), self.t("no_selection"))
-            return
-        page_url, ua, cookies = self.session
-        out = Path(self.out.get())
-        self.status.set(self.t("downloading"))
-        self.bar.configure(value=0)
-
-        async def job():
-            await core.download_items(self.t, sel, page_url, ua, cookies, out, self.log, self.progress)
-
-        self.run_bg(job, lambda _r: self.status.set(self.t("finished")))
-
-    # ---------- thread -> UI bridge ----------
-    def pump(self):
+    def work():
+        end = "ready"
         try:
-            while True:
-                msg = self.q.get_nowait()
-                kind = msg[0]
-                if kind == "log":
-                    self.logbox.configure(state="normal")
-                    self.logbox.insert("end", msg[1] + "\n")
-                    self.logbox.see("end")
-                    self.logbox.configure(state="disabled")
-                elif kind == "progress":
-                    done, total = msg[1], msg[2]
-                    self.bar.configure(value=(done / total * 100) if total else 0)
-                    self.status.set(f"{self.t('downloading')} {core.human(done)}" + (f" / {core.human(total)}" if total else ""))
-                elif kind == "done":
-                    self.set_busy(False)
-                    msg[1](msg[2])
-                elif kind == "error":
-                    self.set_busy(False)
-                    self.status.set(self.t("ready"))
-                    self.log(self.t("error", err=msg[1]))
-        except queue.Empty:
-            pass
-        self.root.after(100, self.pump)
+            on_ok(asyncio.run(factory()))
+            end = "done" if phase == "downloading" else "ready"
+        except Exception as e:
+            S.log(t("error", err=str(e).splitlines()[0] if str(e) else e))
+            end = "error"
+        with S.lock:
+            S.busy, S.phase = False, end
+
+    threading.Thread(target=work, daemon=True).start()
+    return True
+
+
+def api_scan(body):
+    t = core.Translator(body.get("lang", "en"))
+    url = str(body.get("url", "")).strip()
+    if "://" not in url:
+        url = "https://" + url
+    if not url.lower().startswith(("http://", "https://")):
+        return {"ok": False}
+    wait = max(5, min(300, int(body.get("wait") or 20)))
+    cdp = body.get("cdp") or None
+
+    def finish(res):
+        items, ua, cookies = res
+        for i, it in enumerate(items):
+            it["id"] = i
+            it["name"] = core.safe_name(it["url"], it["ext"] or "mp4")
+        with S.lock:
+            S.items, S.session = items, (url, ua, cookies)
+            S.version += 1
+        if not items:
+            S.log(t("none"))
+
+    with S.lock:
+        S.items, S.session = [], None
+        S.version += 1
+    return {"ok": run_job(lambda: core.detect(t, url, cdp, wait, S.log), "scanning", finish, t)}
+
+
+def api_download(body):
+    t = core.Translator(body.get("lang", "en"))
+    if not S.session:
+        return {"ok": False}
+    ids = {int(i) for i in body.get("ids", [])}
+    chosen = [it for it in S.items if it["id"] in ids]
+    if not chosen:
+        return {"ok": False}
+    page_url, ua, cookies = S.session
+    out = Path(body.get("out") or Path.home() / "Downloads").expanduser()
+
+    async def job():
+        await core.download_items(t, chosen, page_url, ua, cookies, out, S.log, S.progress)
+
+    return {"ok": run_job(job, "downloading", lambda _r: None, t)}
+
+
+def open_folder(path: str):
+    p = Path(path or Path.home() / "Downloads").expanduser()
+    p.mkdir(parents=True, exist_ok=True)
+    if sys.platform.startswith("win"):
+        os.startfile(p)
+    elif sys.platform == "darwin":
+        subprocess.Popen(["open", str(p)])
+    else:
+        subprocess.Popen(["xdg-open", str(p)])
+
+
+class Handler(BaseHTTPRequestHandler):
+    def log_message(self, *a):
+        pass
+
+    def send(self, code, body, ctype="application/json"):
+        data = body if isinstance(body, bytes) else body.encode("utf-8")
+        self.send_response(code)
+        self.send_header("Content-Type", ctype + "; charset=utf-8")
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(data)
+
+    def allowed(self, need_token=True):
+        if self.headers.get("Host", "").split(":")[0] not in ("127.0.0.1", "localhost"):
+            return False  # blocks DNS-rebinding
+        return not need_token or hmac.compare_digest(self.headers.get("X-Token", ""), TOKEN)
+
+    def do_GET(self):
+        u = urlparse(self.path)
+        if u.path == "/" and self.allowed(False):
+            html = (BASE / "ui.html").read_text(encoding="utf-8").replace("__TOKEN__", TOKEN)
+            return self.send(200, html, "text/html")
+        if u.path == "/api/state" and self.allowed():
+            S.last_seen = time.monotonic()
+            since = int(parse_qs(u.query).get("since", ["0"])[0])
+            with S.lock:
+                payload = {
+                    "phase": S.phase, "busy": S.busy, "version": S.version,
+                    "items": [{k: it[k] for k in ("id", "kind", "ext", "size", "source", "url", "name")} for it in S.items],
+                    "logs": S.logs[since:], "next": len(S.logs), "done": S.done, "total": S.total,
+                    "default_out": str(Path.home() / "Downloads"),
+                }
+            return self.send(200, json.dumps(payload))
+        self.send(404, "{}")
+
+    def do_POST(self):
+        if not self.allowed():
+            return self.send(403, "{}")
+        try:
+            body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
+            route = urlparse(self.path).path
+            if route == "/api/scan":
+                res = api_scan(body)
+            elif route == "/api/download":
+                res = api_download(body)
+            elif route == "/api/open-folder":
+                open_folder(body.get("out", ""))
+                res = {"ok": True}
+            else:
+                return self.send(404, "{}")
+            self.send(200, json.dumps(res))
+        except Exception as e:
+            self.send(500, json.dumps({"ok": False, "error": str(e)}))
+
+
+def find_browser():
+    paths = []
+    if sys.platform.startswith("win"):
+        for env in ("PROGRAMFILES", "PROGRAMFILES(X86)", "LOCALAPPDATA"):
+            base = os.environ.get(env)
+            if base:
+                paths += [Path(base, "Google/Chrome/Application/chrome.exe"), Path(base, "Microsoft/Edge/Application/msedge.exe")]
+    elif sys.platform == "darwin":
+        paths += [Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"),
+                  Path("/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge")]
+    else:
+        paths += [Path(p) for n in ("google-chrome", "chromium", "chromium-browser", "microsoft-edge") if (p := shutil.which(n))]
+    return next((str(p) for p in paths if p.exists()), None)
 
 
 def main():
-    root = tk.Tk()
-    App(root)
-    root.mainloop()
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    url = f"http://127.0.0.1:{server.server_address[1]}/"
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+
+    browser = find_browser()
+    if browser:
+        profile = tempfile.mkdtemp(prefix="videograbber_ui_")
+        try:
+            subprocess.Popen([browser, f"--app={url}", "--window-size=1000,860", f"--user-data-dir={profile}",
+                              "--no-first-run", "--no-default-browser-check"]).wait()
+        finally:
+            shutil.rmtree(profile, ignore_errors=True)
+        return
+
+    webbrowser.open(url)  # fallback: exit once the tab stops polling
+    print(f"Video Grabber: {url}")
+    try:
+        while time.monotonic() - S.last_seen < 90:
+            time.sleep(2)
+    except KeyboardInterrupt:
+        pass
 
 
 if __name__ == "__main__":

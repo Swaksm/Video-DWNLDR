@@ -21,7 +21,9 @@ Double-click `VideoGrabber.exe` (or run `python gui.py`).
 1. Paste the page URL and click **Scan page**.
 2. A browser opens: solve the Cloudflare captcha if it shows up, press play if the video doesn't start.
 3. Select one or more videos in the list, click **Download selected**.
-4. Change the language (English / Français) at the top right. Scan as many pages as you want, the window stays open.
+4. Top right: switch language (EN / FR) and light / dark theme. Scan as many pages as you want, the window stays open.
+
+The app runs locally (nothing is sent anywhere) and opens in its own Chrome/Edge window.
 
 ## Command line
 

@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Video Grabber</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script>
+  (function () {
+    var t = localStorage.getItem("theme");
+    if (!t) t = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    document.documentElement.setAttribute("data-theme", t);
+  })();
+</script>
+<style>
+  :root {
+    --bg: #FBFAF7; --card: #FFFFFF; --sunken: #F2F0EA;
+    --text: #1C1D1F; --muted: #6B6A63; --faint: #A3A099;
+    --border: #E7E4DB; --border-strong: #D5D1C4;
+    --accent: #35479E; --accent-text: #FFFFFF; --accent-soft: rgba(53, 71, 158, .08);
+    --err: #B6324A; --warn: #A6670F; --ok: #2F7D53;
+    --shadow: 0 1px 2px rgba(28, 29, 31, .04);
+    --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+    --head: "Archivo", "IBM Plex Sans", system-ui, sans-serif;
+  }
+  :root[data-theme="dark"] {
+    --bg: #15161B; --card: #1C1E24; --sunken: #0F1013;
+    --text: #ECE9E1; --muted: #9B998F; --faint: #6A6962;
+    --border: #2B2D33; --border-strong: #3B3E46;
+    --accent: #7E8DF2; --accent-text: #0F1013; --accent-soft: rgba(126, 141, 242, .12);
+    --err: #E5677F; --warn: #D9993A; --ok: #5CBF8A;
+    --shadow: none;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 var(--sans); }
+  body { min-height: 100vh; }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 28px 20px 40px; display: flex; flex-direction: column; gap: 16px; }
+
+  header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+  .brand { display: flex; align-items: center; gap: 10px; font: 800 22px/1 var(--head); letter-spacing: -.01em; }
+  .mark { width: 28px; height: 28px; border-radius: 7px; background: var(--accent); display: grid; place-items: center; }
+  .mark svg { fill: var(--accent-text); }
+  .tools { display: flex; align-items: center; gap: 10px; }
+
+  .seg { display: inline-flex; border: 1px solid var(--border-strong); border-radius: 7px; overflow: hidden; }
+  .seg button { border: 0; background: transparent; color: var(--muted); font: 600 12px var(--sans); padding: 6px 10px; cursor: pointer; }
+  .seg button.on { background: var(--accent-soft); color: var(--accent); }
+  .icon-btn { border: 1px solid var(--border-strong); background: var(--card); color: var(--muted); border-radius: 7px; width: 32px; height: 32px; cursor: pointer; display: grid; place-items: center; }
+  .icon-btn:hover { color: var(--text); }
+
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); padding: 20px; }
+  .card h2 { margin: 0; font: 700 15px/1.2 var(--head); letter-spacing: .01em; }
+  .card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+  .row { display: flex; gap: 10px; align-items: center; }
+  .grow { flex: 1; min-width: 0; }
+
+  label.field { display: block; font: 500 12px var(--sans); color: var(--muted); margin-bottom: 6px; }
+  input[type=text], input[type=number] {
+    width: 100%; background: var(--sunken); color: var(--text); border: 1px solid var(--border);
+    border-radius: 7px; padding: 10px 12px; font: 14px var(--sans); outline: none;
+  }
+  input.mono { font-family: var(--mono); font-size: 13px; }
+  input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  input::placeholder { color: var(--faint); }
+
+  button.btn {
+    border: 1px solid var(--border-strong); background: var(--card); color: var(--text);
+    border-radius: 7px; padding: 9px 14px; font: 600 13px var(--sans); cursor: pointer; white-space: nowrap;
+  }
+  button.btn:hover:not(:disabled) { border-color: var(--muted); }
+  button.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+  button.btn.primary:hover:not(:disabled) { filter: brightness(1.08); }
+  button.btn.link { border: 0; background: transparent; color: var(--accent); padding: 6px 4px; }
+  button.btn:disabled { opacity: .45; cursor: not-allowed; }
+
+  .opts { display: grid; grid-template-columns: 110px 1fr; gap: 14px; margin-top: 16px; }
+  .opts2 { display: flex; align-items: center; gap: 12px; margin-top: 14px; flex-wrap: wrap; }
+  .tip { margin: 14px 0 0; color: var(--muted); font-size: 12.5px; }
+
+  .switch { position: relative; width: 42px; height: 24px; flex: none; }
+  .switch input { opacity: 0; width: 100%; height: 100%; position: absolute; margin: 0; cursor: pointer; z-index: 1; }
+  .switch span { position: absolute; inset: 0; background: var(--border-strong); border-radius: 24px; transition: background .15s; }
+  .switch span::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform .15s; }
+  .switch input:checked + span { background: var(--accent); }
+  .switch input:checked + span::after { transform: translateX(18px); }
+  .switch-label { display: flex; align-items: center; gap: 10px; font-weight: 500; }
+
+  .pill { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--border-strong); border-radius: 999px; padding: 3px 10px; font: 600 12px var(--sans); color: var(--muted); }
+  .pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .pill.busy { color: var(--accent); border-color: var(--accent); }
+  .pill.busy::before { animation: pulse 1s infinite; }
+  .pill.ok { color: var(--ok); border-color: var(--ok); }
+  .pill.err { color: var(--err); border-color: var(--err); }
+  @keyframes pulse { 50% { opacity: .25; } }
+
+  .list { border: 1px solid var(--border); border-radius: 7px; max-height: 300px; overflow-y: auto; background: var(--card); }
+  .item { display: grid; grid-template-columns: 22px 64px 1fr 84px 64px; gap: 12px; align-items: center; padding: 11px 14px; border-bottom: 1px solid var(--border); cursor: pointer; }
+  .item:last-child { border-bottom: 0; }
+  .item:hover { background: var(--accent-soft); }
+  .item input { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; }
+  .tag { font: 500 11px var(--mono); text-transform: uppercase; letter-spacing: .04em; border: 1px solid var(--border-strong); border-radius: 5px; padding: 2px 6px; text-align: center; color: var(--text); }
+  .tag.stream { color: var(--accent); border-color: var(--accent); }
+  .name { min-width: 0; }
+  .name b { display: block; font: 500 13px var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .name small { display: block; font: 400 11.5px var(--mono); color: var(--faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .num { font: 500 13px var(--mono); font-variant-numeric: tabular-nums; text-align: right; }
+  .src { font-size: 12px; color: var(--muted); text-align: right; }
+  .empty { padding: 36px 16px; text-align: center; color: var(--muted); }
+  .empty b { display: block; color: var(--text); font: 700 15px var(--head); margin-bottom: 4px; }
+
+  .bar { height: 6px; background: var(--sunken); border-radius: 6px; overflow: hidden; border: 1px solid var(--border); }
+  .bar i { display: block; height: 100%; width: 0; background: var(--accent); border-radius: 6px; transition: width .2s; }
+  .bar.indet i { width: 30% !important; animation: slide 1.1s infinite ease-in-out; }
+  @keyframes slide { 0% { margin-left: -30%; } 100% { margin-left: 100%; } }
+  .meta { display: flex; justify-content: space-between; margin: 8px 0 14px; font: 500 12px var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+  .log { background: var(--sunken); border: 1px solid var(--border); border-radius: 7px; padding: 12px; height: 150px; overflow-y: auto; font: 12px/1.6 var(--mono); color: var(--muted); white-space: pre-wrap; word-break: break-all; }
+  .log .e { color: var(--err); } .log .o { color: var(--ok); }
+
+  .foot { color: var(--faint); font-size: 12px; text-align: center; margin-top: 4px; }
+
+  ::-webkit-scrollbar { width: 7px; height: 7px; }
+  ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 7px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+
+  @media (max-width: 640px) {
+    .item { grid-template-columns: 22px 54px 1fr 70px; } .src { display: none; }
+    .opts { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="mark"><svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 1.2v9.6L10.4 6z"/></svg></div>
+      Video Grabber
+    </div>
+    <div class="tools">
+      <div class="seg" id="langSeg"><button data-l="en">EN</button><button data-l="fr">FR</button></div>
+      <button class="icon-btn" id="themeBtn" title="Theme" aria-label="Theme">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <section class="card">
+    <div class="row">
+      <div class="grow">
+        <label class="field" for="url" data-i="url_label"></label>
+        <input id="url" type="text" class="mono" placeholder="https://" autocomplete="off" spellcheck="false">
+      </div>
+      <button class="btn primary" id="scanBtn" style="align-self:flex-end;height:41px"></button>
+    </div>
+    <div class="opts">
+      <div>
+        <label class="field" for="wait" data-i="wait_label"></label>
+        <input id="wait" type="number" min="5" max="300" value="20" class="mono">
+      </div>
+      <div>
+        <label class="field" for="out" data-i="out_label"></label>
+        <input id="out" type="text" class="mono" spellcheck="false">
+      </div>
+    </div>
+    <div class="opts2">
+      <label class="switch-label">
+        <span class="switch"><input type="checkbox" id="cdpOn"><span></span></span>
+        <span data-i="use_cdp"></span>
+      </label>
+      <input id="cdp" type="text" class="mono" value="http://localhost:9222" style="width:240px;display:none">
+    </div>
+    <p class="tip" data-i="tip"></p>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <div class="row"><h2 data-i="videos"></h2><span class="pill" id="countPill"></span></div>
+      <div class="row">
+        <button class="btn link" id="allBtn"></button>
+        <button class="btn primary" id="dlBtn"></button>
+      </div>
+    </div>
+    <div class="list" id="list"></div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <div class="row"><h2 data-i="activity"></h2><span class="pill" id="phasePill"></span></div>
+      <button class="btn" id="folderBtn"></button>
+    </div>
+    <div class="bar" id="bar"><i></i></div>
+    <div class="meta"><span id="metaL"></span><span id="metaR"></span></div>
+    <div class="log" id="log"></div>
+  </section>
+
+  <div class="foot" data-i="disclaimer"></div>
+</div>
+
+<script>
+const TOKEN = "__TOKEN__";
+const I18N = {
+  en: {
+    url_label: "Page URL", scan: "Scan page", wait_label: "Scan time (s)", out_label: "Save to",
+    use_cdp: "Attach to my Chrome (--cdp)", tip: "If Cloudflare shows a captcha, solve it in the browser window that opens, then press play on the video.",
+    videos: "Videos", select_all: "Select all", download: "Download selected", activity: "Activity", open_folder: "Open folder",
+    empty_t: "No videos yet", empty_s: "Paste a page URL and scan it.", hls: "Stream",
+    src_net: "network", src_dom: "page", n_found: "{n} found", n_sel: "{n} selected",
+    ph_ready: "Ready", ph_scanning: "Scanning", ph_downloading: "Downloading", ph_done: "Done", ph_error: "Error",
+    need_url: "Enter a page URL first.", need_sel: "Select at least one video.",
+    disclaimer: "Only download content you are allowed to. You are responsible for site terms and copyright."
+  },
+  fr: {
+    url_label: "URL de la page", scan: "Analyser la page", wait_label: "Durée (s)", out_label: "Enregistrer dans",
+    use_cdp: "Utiliser mon Chrome (--cdp)", tip: "Si Cloudflare affiche un captcha, résous-le dans la fenêtre du navigateur qui s'ouvre, puis lance la lecture de la vidéo.",
+    videos: "Vidéos", select_all: "Tout sélectionner", download: "Télécharger la sélection", activity: "Activité", open_folder: "Ouvrir le dossier",
+    empty_t: "Aucune vidéo", empty_s: "Colle l'URL d'une page et analyse-la.", hls: "Flux",
+    src_net: "réseau", src_dom: "page", n_found: "{n} trouvée(s)", n_sel: "{n} sélectionnée(s)",
+    ph_ready: "Prêt", ph_scanning: "Analyse", ph_downloading: "Téléchargement", ph_done: "Terminé", ph_error: "Erreur",
+    need_url: "Saisis d'abord l'URL d'une page.", need_sel: "Sélectionne au moins une vidéo.",
+    disclaimer: "Ne télécharge que du contenu autorisé. Tu es responsable des conditions des sites et du droit d'auteur."
+  }
+};
+const $ = (s) => document.querySelector(s);
+let lang = localStorage.getItem("lang") || "en";
+let S = { phase: "ready", busy: false, items: [], version: -1, done: 0, total: 0 };
+let sel = new Set(), logNext = 0, shownVersion = -2;
+
+const t = (k, v) => (I18N[lang][k] || k).replace("{n}", v);
+const human = (n) => { if (!n) return "—"; const u = ["B","KB","MB","GB"]; let i = 0; while (n >= 1024 && i < 3) { n /= 1024; i++; } return n.toFixed(i ? 1 : 0) + " " + u[i]; };
+
+async function api(path, body) {
+  const r = await fetch(path, { method: body ? "POST" : "GET", headers: { "X-Token": TOKEN, "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
+  return r.json();
+}
+
+function applyLang() {
+  document.documentElement.lang = lang;
+  document.querySelectorAll("[data-i]").forEach((e) => (e.textContent = t(e.dataset.i)));
+  $("#scanBtn").textContent = t("scan"); $("#allBtn").textContent = t("select_all");
+  $("#dlBtn").textContent = t("download"); $("#folderBtn").textContent = t("open_folder");
+  document.querySelectorAll("#langSeg button").forEach((b) => b.classList.toggle("on", b.dataset.l === lang));
+  shownVersion = -2; render();
+}
+
+function render() {
+  const busy = S.busy;
+  $("#scanBtn").disabled = busy; $("#dlBtn").disabled = busy || !sel.size;
+  const pill = $("#phasePill");
+  pill.textContent = t("ph_" + S.phase);
+  pill.className = "pill " + ({ scanning: "busy", downloading: "busy", done: "ok", error: "err" }[S.phase] || "");
+  const cp = $("#countPill");
+  cp.textContent = sel.size ? t("n_sel", sel.size) : t("n_found", S.items.length);
+
+  if (shownVersion !== S.version) {
+    shownVersion = S.version;
+    const list = $("#list"); list.textContent = "";
+    if (!S.items.length) {
+      const e = document.createElement("div"); e.className = "empty";
+      const b = document.createElement("b"); b.textContent = t("empty_t");
+      e.append(b, t("empty_s")); list.append(e);
+    }
+    for (const it of S.items) {
+      const row = document.createElement("label"); row.className = "item";
+      const cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = sel.has(it.id);
+      cb.onchange = () => { cb.checked ? sel.add(it.id) : sel.delete(it.id); render(); };
+      const tag = document.createElement("span"); tag.className = "tag" + (it.kind === "manifest" ? " stream" : "");
+      tag.textContent = it.kind === "manifest" ? t("hls") : (it.ext || "?");
+      const nm = document.createElement("div"); nm.className = "name"; nm.title = it.url;
+      const b = document.createElement("b"); b.textContent = it.name;
+      const s = document.createElement("small"); s.textContent = it.url;
+      nm.append(b, s);
+      const sz = document.createElement("span"); sz.className = "num"; sz.textContent = human(it.size);
+      const sr = document.createElement("span"); sr.className = "src"; sr.textContent = t(it.source === "source_dom" ? "src_dom" : "src_net");
+      row.append(cb, tag, nm, sz, sr); list.append(row);
+    }
+  }
+  const bar = $("#bar");
+  const dl = S.phase === "downloading";
+  bar.classList.toggle("indet", dl && !S.total);
+  bar.firstElementChild.style.width = dl && S.total ? (S.done / S.total * 100) + "%" : (S.phase === "done" ? "100%" : "0");
+  $("#metaL").textContent = dl ? human(S.done) + (S.total ? " / " + human(S.total) : "") : "";
+  $("#metaR").textContent = dl && S.total ? (S.done / S.total * 100).toFixed(1) + " %" : "";
+}
+
+function addLog(line) {
+  const box = $("#log"), d = document.createElement("div");
+  d.textContent = line;
+  if (line.startsWith("[x]")) d.className = "e"; else if (line.startsWith("[+]")) d.className = "o";
+  box.append(d); box.scrollTop = box.scrollHeight;
+}
+
+async function poll() {
+  try {
+    const s = await api("/api/state?since=" + logNext);
+    const newScan = s.version !== S.version;
+    S = s; logNext = s.next;
+    s.logs.forEach(addLog);
+    if (newScan) { sel = new Set(S.items.length ? [S.items[0].id] : []); shownVersion = -2; }
+    if (!$("#out").value) $("#out").value = s.default_out;
+    render();
+  } catch (e) {}
+  setTimeout(poll, 500);
+}
+
+$("#scanBtn").onclick = async () => {
+  const url = $("#url").value.trim();
+  if (!url) return addLog("[x] " + t("need_url"));
+  localStorage.setItem("out", $("#out").value);
+  await api("/api/scan", { url, lang, wait: +$("#wait").value || 20, cdp: $("#cdpOn").checked ? $("#cdp").value : null });
+};
+$("#url").addEventListener("keydown", (e) => { if (e.key === "Enter" && !S.busy) $("#scanBtn").click(); });
+$("#dlBtn").onclick = async () => {
+  if (!sel.size) return addLog("[x] " + t("need_sel"));
+  localStorage.setItem("out", $("#out").value);
+  await api("/api/download", { ids: [...sel], out: $("#out").value, lang });
+};
+$("#allBtn").onclick = () => { sel = new Set(S.items.map((i) => i.id)); shownVersion = -2; render(); };
+$("#folderBtn").onclick = () => api("/api/open-folder", { out: $("#out").value });
+$("#cdpOn").onchange = (e) => { $("#cdp").style.display = e.target.checked ? "" : "none"; };
+$("#themeBtn").onclick = () => {
+  const n = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", n); localStorage.setItem("theme", n);
+};
+document.querySelectorAll("#langSeg button").forEach((b) => (b.onclick = () => { lang = b.dataset.l; localStorage.setItem("lang", lang); applyLang(); }));
+
+$("#out").value = localStorage.getItem("out") || "";
+applyLang(); poll();
+</script>
+</body>
+</html>

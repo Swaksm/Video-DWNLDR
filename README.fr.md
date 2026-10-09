@@ -21,7 +21,9 @@ Double-clic sur `VideoGrabber.exe` (ou `python gui.py`).
 1. Colle l'URL de la page et clique sur **Analyser la page**.
 2. Un navigateur s'ouvre : résous le captcha Cloudflare s'il apparaît, lance la lecture si la vidéo ne démarre pas.
 3. Sélectionne une ou plusieurs vidéos dans la liste, clique sur **Télécharger la sélection**.
-4. Change la langue (English / Français) en haut à droite. Tu peux analyser autant de pages que tu veux, la fenêtre reste ouverte.
+4. En haut à droite : langue (EN / FR) et thème clair / sombre. Tu peux analyser autant de pages que tu veux, la fenêtre reste ouverte.
+
+L'application tourne en local (rien n'est envoyé ailleurs) et s'ouvre dans sa propre fenêtre Chrome/Edge.
 
 ## Ligne de commande
 
