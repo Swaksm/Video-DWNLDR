@@ -1,11 +1,15 @@
 """Loads extension/ into Playwright's Chromium (branded Chrome ignores --load-extension)."""
 
+import json
+import os
+import sys
 import time
 from pathlib import Path
 
 import pytest
 from playwright.sync_api import sync_playwright
 
+import native_host
 from conftest import SiteHandler
 
 EXT = str(Path(__file__).resolve().parent.parent / "extension")
@@ -13,17 +17,22 @@ pytestmark = pytest.mark.browser
 
 
 @pytest.fixture(scope="module")
-def ext(tmp_path_factory):
+def ext(tmp_path_factory, site):
+    profile, out = tmp_path_factory.mktemp("profile"), tmp_path_factory.mktemp("app_out")
     with sync_playwright() as p:
         try:
             ctx = p.chromium.launch_persistent_context(
-                str(tmp_path_factory.mktemp("profile")), channel="chromium", headless=True,
+                str(profile), channel="chromium", headless=True, env={**os.environ, "VG_OUT": str(out)},
                 args=[f"--disable-extensions-except={EXT}", f"--load-extension={EXT}"],
             )
         except Exception as e:  # Playwright's Chromium not installed
             pytest.skip(str(e).splitlines()[0])
         sw = ctx.service_workers[0] if ctx.service_workers else ctx.wait_for_event("serviceworker")
-        yield ctx, sw
+        # Right after the extension loads, the first page can beat its network listener; warm up until it sees one.
+        warm = ctx.new_page()
+        wait_for(lambda: warm.goto(site + "/") and time.sleep(0.5) is None and (tab_items(sw, site + "/") or {}).get("items"))
+        warm.close()
+        yield ctx, sw, profile, out
         ctx.close()
 
 
@@ -50,7 +59,7 @@ def tab_items(sw, url):
 
 
 def test_detects_video_in_background(ext, site):
-    ctx, sw = ext
+    ctx, sw, *_ = ext
     page = ctx.new_page()
     page.goto(site + "/")
     state = wait_for(lambda: (r := tab_items(sw, site + "/")) and r["items"] and r)
@@ -60,7 +69,7 @@ def test_detects_video_in_background(ext, site):
 
 
 def test_popup_lists_video(ext, site):
-    ctx, sw = ext
+    ctx, sw, *_ = ext
     page = ctx.new_page()
     page.goto(site + "/")
     state = wait_for(lambda: (r := tab_items(sw, site + "/")) and r["items"] and r)
@@ -79,7 +88,7 @@ def test_popup_lists_video(ext, site):
 
 
 def test_download_sends_referer_and_cookies_and_saves_file(ext, site, clip_bytes):
-    ctx, sw = ext
+    ctx, sw, *_ = ext
     ctx.add_cookies([{"name": "sid", "value": "abc", "url": site}])
     SiteHandler.referers.clear()
     result = sw.evaluate(
@@ -94,3 +103,40 @@ def test_download_sends_referer_and_cookies_and_saves_file(ext, site, clip_bytes
     assert item and item["bytesReceived"] == len(clip_bytes), sw.evaluate("() => chrome.downloads.search({})")
     rules = sw.evaluate("() => chrome.declarativeNetRequest.getSessionRules()")
     assert rules == []  # the temporary Referer rule is cleaned up
+
+
+@pytest.fixture
+def host_for_chromium(ext, tmp_path):
+    """Register the native host for Playwright's Chromium only (not the user's Chrome/Edge)."""
+    _, _, profile, _ = ext
+    root = Path(__file__).resolve().parent.parent
+    if sys.platform.startswith("win"):
+        import winreg
+        wrapper = tmp_path / "host.bat"
+        wrapper.write_text(f'@echo off\r\n"{sys.executable}" "{root / "native_host.py"}" %*\r\n', encoding="utf-8")
+        manifest = tmp_path / "host.json"
+        manifest.write_text(json.dumps(native_host.host_manifest(wrapper)), encoding="utf-8")
+        key = r"Software\Chromium\NativeMessagingHosts\com.videograbber.host"
+        with winreg.CreateKey(winreg.HKEY_CURRENT_USER, key) as k:
+            winreg.SetValueEx(k, "", 0, winreg.REG_SZ, str(manifest))
+        yield
+        winreg.DeleteKey(winreg.HKEY_CURRENT_USER, key)
+    else:
+        wrapper = tmp_path / "host.sh"
+        wrapper.write_text(f'#!/bin/sh\nexec "{sys.executable}" "{root / "native_host.py"}" "$@"\n', encoding="utf-8")
+        wrapper.chmod(0o755)
+        d = profile / "NativeMessagingHosts"  # Chromium looks here when --user-data-dir is set
+        d.mkdir(exist_ok=True)
+        (d / "com.videograbber.host.json").write_text(json.dumps(native_host.host_manifest(wrapper)), encoding="utf-8")
+        yield
+
+
+def test_send_to_app_downloads_through_native_host(ext, host_for_chromium, site, clip_bytes):
+    ctx, sw, _, out = ext
+    ctx.add_cookies([{"name": "sid", "value": "abc", "url": site}])
+    SiteHandler.referers.clear()
+    r = sw.evaluate("(a) => sendToApp({ url: a.url, referer: a.ref })", {"url": site + "/ref.mp4", "ref": "https://host.example/page"})
+    assert r["ok"]
+    saved = wait_for(lambda: [f for f in out.glob("*.mp4") if f.stat().st_size == len(clip_bytes)], timeout=60)
+    assert saved, list(out.iterdir())
+    assert SiteHandler.referers[-1] == ("https://host.example/page", "sid=abc")
