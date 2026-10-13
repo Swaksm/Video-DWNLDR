@@ -45,9 +45,7 @@ Install (once):
 
 Use: open a page, press play, click the Video Grabber icon, then **Download**. The file lands in your normal Downloads folder.
 
-**YouTube and streams (HLS/DASH):** the extension can't save them itself, so it hands them to the desktop app, which uses yt-dlp. Click **Send to app** on a stream, or **Download this page with the app** at the bottom of the popup (that's the one for YouTube). Your cookies for that site are passed along, so videos you can watch while logged in work too. This needs the Video Grabber app 1.5 or later, installed with its installer (it registers the bridge for Chrome, Edge and Opera). For the best quality, install [ffmpeg](https://ffmpeg.org/download.html); without it you get the best single file. Running from source instead? Register the bridge once with `python native_host.py --register`.
-
-Limits: a file downloaded by the extension itself is held in memory until it is saved, so very large videos are better sent to the app. Only download what you are allowed to: YouTube's terms forbid downloading except your own videos or ones whose licence allows it.
+Limits: the extension does not download HLS/DASH streams (`.m3u8`, `.mpd`) or YouTube. For a stream, use its **Copy URL** button and paste it into the app. A file is held in memory until it is saved, so very large videos are better downloaded with the app.
 
 ## Command line
 
