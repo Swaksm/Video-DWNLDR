@@ -45,7 +45,9 @@ Installation (une fois) :
 
 Utilisation : ouvre une page, lance la vidéo, clique sur l'icône Video Grabber, puis sur **Télécharger**. Le fichier arrive dans ton dossier Téléchargements habituel.
 
-Limites : l'extension ne peut pas enregistrer les flux HLS/DASH (`.m3u8`, `.mpd`). Utilise son bouton **Copier l'URL**, ou colle l'URL de la page dans l'application. Le fichier est gardé en mémoire jusqu'à l'enregistrement : pour les très grosses vidéos, préfère l'application.
+**YouTube et flux (HLS/DASH) :** l'extension ne peut pas les enregistrer elle-même, elle les confie donc à l'appli, qui utilise yt-dlp. Clique sur **Envoyer à l'appli** sur un flux, ou sur **Télécharger cette page avec l'appli** en bas du popup (c'est celui-là pour YouTube). Tes cookies pour ce site sont transmis : les vidéos que tu regardes connecté marchent aussi. Il faut l'appli Video Grabber 1.5 ou plus, installée avec son installateur (il enregistre le pont pour Chrome, Edge et Opera). Pour la meilleure qualité, installe [ffmpeg](https://ffmpeg.org/download.html) ; sans lui, tu obtiens le meilleur fichier unique. Tu lances depuis les sources ? Enregistre le pont une fois avec `python native_host.py --register`.
+
+Limites : un fichier téléchargé par l'extension elle-même est gardé en mémoire jusqu'à l'enregistrement, donc pour les très grosses vidéos, envoie-les plutôt à l'appli. Ne télécharge que ce que tu as le droit de télécharger : les conditions de YouTube l'interdisent, sauf pour tes propres vidéos ou celles dont la licence le permet.
 
 ## Ligne de commande
 
