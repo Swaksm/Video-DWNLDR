@@ -6,7 +6,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-VERSION = "1.5.0"
+VERSION = "1.5.1"
 APP = "VideoGrabber"
 IS_WIN = sys.platform.startswith("win")
 CAN_INSTALL = IS_WIN and getattr(sys, "frozen", False)
