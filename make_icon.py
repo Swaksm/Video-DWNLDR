@@ -7,3 +7,5 @@ d = ImageDraw.Draw(img)
 d.rounded_rectangle((0, 0, S - 1, S - 1), radius=int(S * 0.24), fill="#35479E")
 d.polygon([(S * 0.38, S * 0.26), (S * 0.38, S * 0.74), (S * 0.76, S * 0.5)], fill="white")
 img.save("icon.ico", sizes=[(256, 256), (128, 128), (64, 64), (48, 48), (32, 32), (16, 16)])
+for size in (16, 48, 128):
+    img.resize((size, size), Image.LANCZOS).save(f"extension/icons/icon{size}.png")
