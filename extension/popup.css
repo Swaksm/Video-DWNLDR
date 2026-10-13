@@ -28,8 +28,6 @@ button.play { width: 42px; height: 42px; margin: 0 15px; border-radius: 50%; pad
 .name small { color: var(--muted); font: 11px ui-monospace, Consolas, monospace; }
 button { border: 1px solid var(--accent); background: var(--accent); color: var(--accent-text); border-radius: 7px; padding: 6px 10px; font: 600 12px inherit; font-family: inherit; cursor: pointer; white-space: nowrap; }
 button.ghost { background: transparent; color: var(--accent); }
-button.wide { width: 100%; margin-top: 10px; padding: 8px; }
-button[hidden] { display: none; }
 button:disabled { opacity: .5; cursor: default; }
 button.ok { background: var(--ok); border-color: var(--ok); }
 button.err { background: var(--err); border-color: var(--err); }

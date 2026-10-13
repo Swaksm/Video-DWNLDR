@@ -23,9 +23,7 @@
     "downloads",
     "storage",
     "declarativeNetRequestWithHostAccess",
-    "offscreen",
-    "nativeMessaging",
-    "cookies"
+    "offscreen"
   ],
   "host_permissions": [
     "<all_urls>"
