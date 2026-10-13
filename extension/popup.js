@@ -31,6 +31,31 @@ chrome.runtime.onMessage.addListener((msg) => {
   if (msg.type === "fetched") finish(btn, msg.ok, msg.error);
 });
 
+const AUDIO_EXT = ["mp3", "m4a", "aac", "ogg", "wav", "opus"];
+
+// Video: first frame as a thumbnail, plays muted on hover. Audio: a play button.
+// Falls back to a plain tag when the server refuses the popup's request (no page Referer).
+function preview(it, stream) {
+  const tag = el("span", "tag" + (stream ? " stream" : ""), stream ? T.stream : it.ext || "?");
+  if (stream) return tag;
+  if (AUDIO_EXT.includes(it.ext) || (it.ctype || "").startsWith("audio/")) {
+    const audio = new Audio(it.url);
+    const play = el("button", "play", "▶");
+    play.onclick = () => (audio.paused ? audio.play().catch(() => (play.disabled = true)) : audio.pause());
+    audio.onplay = () => (play.textContent = "❚❚");
+    audio.onpause = audio.onended = () => (play.textContent = "▶");
+    return play;
+  }
+  const v = el("video", "thumb");
+  v.muted = true;
+  v.preload = "metadata";
+  v.src = it.url + "#t=0.5";
+  v.onmouseenter = () => v.play().catch(() => {});
+  v.onmouseleave = () => v.pause();
+  v.onerror = () => v.replaceWith(tag);
+  return v;
+}
+
 async function main() {
   const param = Number(new URLSearchParams(location.search).get("tab"));
   const tab = param ? await chrome.tabs.get(param) : (await chrome.tabs.query({ active: true, currentWindow: true }))[0];
@@ -48,10 +73,11 @@ async function main() {
   for (const it of items) {
     const row = el("div", "item");
     const stream = it.kind === "manifest";
-    row.append(el("span", "tag" + (stream ? " stream" : ""), stream ? T.stream : it.ext || "?"));
+    row.append(preview(it, stream));
     const name = el("div", "name");
     name.title = it.url;
-    name.append(el("b", "", safeName(it.url, it.ext || "mp4")), el("small", "", human(it.size)));
+    const label = (stream ? T.stream : it.ext || "?").toUpperCase();
+    name.append(el("b", "", safeName(it.url, it.ext || "mp4")), el("small", "", label + " · " + human(it.size)));
     row.append(name);
     const btn = el("button", stream ? "ghost" : "", stream ? T.copy : T.download);
     btn.onclick = async () => {
