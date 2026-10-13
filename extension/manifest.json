@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Video Grabber",
-  "version": "1.0.0",
+  "version": "1.5.0",
   "description": "Detects videos on the page in the background and downloads them with the right cookies and Referer.",
   "icons": {
     "16": "icons/icon16.png",
