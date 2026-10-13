@@ -26,6 +26,8 @@ jobs:
       - name: Install Chromium for Playwright
         run: python -m playwright install --with-deps chromium
       - run: python -m pytest -v
+      - name: Extension unit tests
+        run: node --test extension/detect.test.js
 
   build-windows:
     name: Build Windows executables
