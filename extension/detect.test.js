@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert");
-const { urlExt, classify, totalSize, human, safeName } = require("./detect.js");
+const { urlExt, classify, totalSize, human, safeName, isNoise } = require("./detect.js");
 
 test("urlExt", () => {
   assert.strictEqual(urlExt("https://x.com/a/video.MP4?token=1"), "mp4");
@@ -37,4 +37,11 @@ test("safeName", () => {
   assert.strictEqual(safeName("https://x.com/a/stream", "mp4"), "stream.mp4");
   assert.strictEqual(safeName("https://x.com/", "mp4"), "video.mp4");
   assert.ok(!safeName("https://x.com/a%2Fb.mp4", "mp4").includes("/"));
+});
+
+test("isNoise hides tiny direct files only", () => {
+  assert.strictEqual(isNoise("direct", 6 * 1024), true);
+  assert.strictEqual(isNoise("direct", 65000), false);
+  assert.strictEqual(isNoise("direct", 0), false); // unknown size: keep
+  assert.strictEqual(isNoise("manifest", 900), false); // playlists are small by nature
 });

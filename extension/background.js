@@ -21,10 +21,11 @@ async function onHeaders(d) {
   const h = {};
   for (const x of d.responseHeaders || []) h[x.name.toLowerCase()] = x.value || "";
   const kind = classify(d.url, h["content-type"]);
-  if (!kind) return;
+  const size = totalSize(h);
+  if (!kind || isNoise(kind, size)) return;
   const items = await getItems(d.tabId);
   if (items.some((i) => i.url === d.url)) return;
-  items.push({ url: d.url, kind, ext: urlExt(d.url), size: totalSize(h), ctype: h["content-type"] || "" });
+  items.push({ url: d.url, kind, ext: urlExt(d.url), size, ctype: h["content-type"] || "" });
   await setItems(d.tabId, items);
 }
 

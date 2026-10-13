@@ -47,4 +47,10 @@ function safeName(url, extFallback) {
   return name;
 }
 
-if (typeof module !== "undefined") module.exports = { urlExt, classify, totalSize, human, safeName };
+// shortcut: size threshold, not content sniffing; UI sounds and beeps are a few KB, real clips far more.
+const MIN_DIRECT_BYTES = 50 * 1024;
+function isNoise(kind, size) {
+  return kind === "direct" && size > 0 && size < MIN_DIRECT_BYTES;
+}
+
+if (typeof module !== "undefined") module.exports = { urlExt, classify, totalSize, human, safeName, isNoise };
