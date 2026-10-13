@@ -3,9 +3,32 @@
   "name": "Video Grabber",
   "version": "1.0.0",
   "description": "Detects videos on the page in the background and downloads them with the right cookies and Referer.",
-  "icons": { "16": "icons/icon16.png", "48": "icons/icon48.png", "128": "icons/icon128.png" },
-  "action": { "default_popup": "popup.html", "default_icon": { "16": "icons/icon16.png", "48": "icons/icon48.png" } },
-  "background": { "service_worker": "background.js" },
-  "permissions": ["webRequest", "downloads", "storage", "declarativeNetRequestWithHostAccess", "offscreen"],
-  "host_permissions": ["<all_urls>"]
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": [
+    "webRequest",
+    "downloads",
+    "storage",
+    "declarativeNetRequestWithHostAccess",
+    "offscreen",
+    "nativeMessaging",
+    "cookies"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAymLBoviBMkqEgJl+CV8S2lIWwoCHF9tWPHfcEw83Tzi2zYgETRTkbm0+yFWc2yktlVJ6XvU8dwl+H6ia+/vFAXAM/8438GRyex1ViZ3Ck5B0CuUIhkRyQBx5dsXufn4d2/6XJzqd2FFY6r66sGe2Svq7xABN01swtWjO+xVDlLuB2Lh0Igtba75VJn6KgS+QbhfU2HLpqkFPVmviI/O0YVIFm6ZqWM0y3Ytny2heCV9UtxR8/4Mthao5kGt6AQ1s9FzxAG/PVYnvk9PBPjE0AUglEhqn9OWUhS2Q9S/KYGVsUktF1PZUQEb1q45awepYwO7xAxHjOMn/muYAzQNyYQIDAQAB"
 }

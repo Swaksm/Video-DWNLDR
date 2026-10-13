@@ -90,8 +90,43 @@ chrome.downloads.onChanged.addListener(async (delta) => {
   chrome.runtime.sendMessage({ target: "offscreen", type: "revoke", blobUrl }).catch(() => {});
 });
 
+// YouTube, HLS and DASH need yt-dlp: hand the URL and the site's cookies to the desktop app.
+const HOST = "com.videograbber.host";
+
+async function siteCookies(urls) {
+  const seen = new Map();
+  for (const u of urls) {
+    for (const c of await chrome.cookies.getAll({ url: u }).catch(() => [])) {
+      seen.set(c.domain + "|" + c.path + "|" + c.name, {
+        domain: c.domain, path: c.path, secure: c.secure, expires: Math.floor(c.expirationDate || 0), name: c.name, value: c.value,
+      });
+    }
+  }
+  return [...seen.values()];
+}
+
+async function sendToApp({ url, referer }) {
+  const cookies = await siteCookies(referer && referer !== url ? [url, referer] : [url]);
+  const relay = (m) => chrome.runtime.sendMessage({ ...m, url, via: "app" }).catch(() => {});
+  const port = chrome.runtime.connectNative(HOST);
+  port.onMessage.addListener((m) => {
+    relay(m);
+    if (m.type === "done" || m.type === "error") port.disconnect();
+  });
+  port.onDisconnect.addListener(() => {
+    const err = chrome.runtime.lastError;
+    if (err) relay({ type: "error", error: /not found|forbidden/i.test(err.message) ? "app-missing" : err.message });
+  });
+  port.postMessage({ type: "download", url, referer, userAgent: navigator.userAgent, cookies });
+  return { ok: true };
+}
+
 chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
   if (!msg || msg.target === "offscreen") return;
+  if (msg.type === "send-to-app") {
+    sendToApp(msg).then(reply, (e) => reply({ ok: false, error: String(e && e.message || e) }));
+    return true;
+  }
   if (msg.type === "download") {
     download(msg).then(reply, (e) => reply({ ok: false, error: String(e && e.message || e) }));
     return true; // async reply

@@ -1,12 +1,14 @@
 const FR = (navigator.language || "").toLowerCase().startsWith("fr");
 const T = FR ? {
-  found: (n) => n + " vidéo(s)", download: "Télécharger", working: "En cours...", saved: "Enregistré", failed: "Échec", copy: "Copier l'URL", copied: "Copié",
+  found: (n) => n + " vidéo(s)", download: "Télécharger", working: "En cours...", saved: "Enregistré", failed: "Échec",
   empty_t: "Aucune vidéo détectée", empty_s: "Lance la lecture de la vidéo, puis rouvre ce menu.", stream: "Flux",
-  hint: "Les flux HLS/DASH se téléchargent avec l'application Video Grabber (copie l'URL de la page).",
+  hint: "Les flux HLS/DASH et YouTube passent par l'application Video Grabber.", app: "Envoyer à l'appli",
+  page: "Télécharger cette page avec l'appli", appMissing: "Installe l'appli Video Grabber (1.5 ou plus) pour utiliser ce bouton.",
 } : {
-  found: (n) => n + " video(s)", download: "Download", working: "Downloading...", saved: "Saved", failed: "Failed", copy: "Copy URL", copied: "Copied",
+  found: (n) => n + " video(s)", download: "Download", working: "Downloading...", saved: "Saved", failed: "Failed",
   empty_t: "No video detected", empty_s: "Press play on the video, then open this menu again.", stream: "Stream",
-  hint: "HLS/DASH streams are downloaded with the Video Grabber app (paste the page URL there).",
+  hint: "HLS/DASH streams and YouTube go through the Video Grabber app.", app: "Send to app",
+  page: "Download this page with the app", appMissing: "Install the Video Grabber app (1.5 or later) to use this button.",
 };
 
 function el(tag, cls, text) {
@@ -21,7 +23,17 @@ const buttons = new Map(); // video url -> its button, updated by progress messa
 function finish(btn, ok, error) {
   btn.textContent = ok ? T.saved : T.failed;
   btn.classList.add(ok ? "ok" : "err");
-  if (error) btn.title = error;
+  if (error === "app-missing") document.getElementById("hint").textContent = T.appMissing;
+  else if (error) btn.title = error;
+}
+
+// Hand a URL to the desktop app (yt-dlp); progress comes back as messages.
+async function toApp(btn, url, referer) {
+  btn.disabled = true;
+  btn.textContent = T.working;
+  buttons.set(url, btn);
+  const r = await chrome.runtime.sendMessage({ type: "send-to-app", url, referer });
+  if (!r || !r.ok) finish(btn, false, r && r.error);
 }
 
 chrome.runtime.onMessage.addListener((msg) => {
@@ -29,6 +41,8 @@ chrome.runtime.onMessage.addListener((msg) => {
   if (!btn) return;
   if (msg.type === "progress") btn.textContent = msg.total ? Math.floor((msg.done / msg.total) * 100) + " %" : human(msg.done);
   if (msg.type === "fetched") finish(btn, msg.ok, msg.error);
+  if (msg.type === "done") finish(btn, true);
+  if (msg.type === "error") finish(btn, false, msg.error);
 });
 
 const AUDIO_EXT = ["mp3", "m4a", "aac", "ogg", "wav", "opus"];
@@ -79,14 +93,10 @@ async function main() {
     const label = (stream ? T.stream : it.ext || "?").toUpperCase();
     name.append(el("b", "", safeName(it.url, it.ext || "mp4")), el("small", "", label + " · " + human(it.size)));
     row.append(name);
-    const btn = el("button", stream ? "ghost" : "", stream ? T.copy : T.download);
+    const btn = el("button", stream ? "ghost" : "", stream ? T.app : T.download);
     btn.onclick = async () => {
+      if (stream) return toApp(btn, it.url, tab.url);
       btn.disabled = true;
-      if (stream) {
-        await navigator.clipboard.writeText(it.url);
-        btn.textContent = T.copied;
-        return;
-      }
       btn.textContent = T.working;
       buttons.set(it.url, btn);
       const r = await chrome.runtime.sendMessage({ type: "download", url: it.url, referer: tab.url, filename: safeName(it.url, it.ext || "mp4") });
@@ -96,6 +106,12 @@ async function main() {
     list.append(row);
   }
   if (items.some((i) => i.kind === "manifest")) document.getElementById("hint").textContent = T.hint;
+  const pageBtn = document.getElementById("pageBtn");
+  if (/^https?:/.test(tab.url || "")) {
+    pageBtn.textContent = T.page;
+    pageBtn.hidden = false;
+    pageBtn.onclick = () => toApp(pageBtn, tab.url, tab.url);
+  }
 }
 
 main();
