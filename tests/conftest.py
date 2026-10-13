@@ -10,6 +10,8 @@ PAGE = b'<html><body><video src="clip.mp4" autoplay muted></video></body></html>
 class SiteHandler(BaseHTTPRequestHandler):
     """Test site: /  -> page with a video, /clip.mp4 -> open video, /secret.mp4 -> needs Referer + cookie + UA."""
 
+    referers: list = []  # (Referer, Cookie) seen on /ref.mp4
+
     def log_message(self, *a):
         pass
 
@@ -32,6 +34,9 @@ class SiteHandler(BaseHTTPRequestHandler):
                 and self.headers.get("User-Agent") == "TestUA/1.0"
             )
             self._send(200, CLIP, "video/mp4") if ok else self._send(403)
+        elif self.path.split("?")[0] == "/ref.mp4":
+            SiteHandler.referers.append((self.headers.get("Referer"), self.headers.get("Cookie")))
+            self._send(200, CLIP, "video/mp4")
         else:
             self._send(404)
 
