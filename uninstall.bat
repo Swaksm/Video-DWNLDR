@@ -9,6 +9,8 @@ powershell -NoProfile -Command ^
  "Remove-Item -LiteralPath (Join-Path $desk 'Video Grabber.lnk') -ErrorAction SilentlyContinue;" ^
  "Remove-Item -LiteralPath (Join-Path $start 'Video Grabber.lnk') -ErrorAction SilentlyContinue;" ^
  "Remove-Item -LiteralPath $k -ErrorAction SilentlyContinue;" ^
+ "foreach($b in 'Google\Chrome','Microsoft\Edge','Chromium'){Remove-Item -LiteralPath ('HKCU:\Software\'+$b+'\NativeMessagingHosts\com.videograbber.host') -ErrorAction SilentlyContinue};" ^
+ "Remove-Item -LiteralPath (Join-Path $d 'com.videograbber.host.json') -ErrorAction SilentlyContinue;" ^
  "Remove-Item -LiteralPath (Join-Path $env:APPDATA 'VideoGrabber') -Recurse -ErrorAction SilentlyContinue;" ^
  "Start-Sleep 1; Remove-Item -LiteralPath (Join-Path $d 'VideoGrabber.exe') -ErrorAction SilentlyContinue;" ^
  "if((Test-Path -LiteralPath $d) -and -not (Get-ChildItem -LiteralPath $d -Force)){Remove-Item -LiteralPath $d}"

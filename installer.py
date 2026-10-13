@@ -114,6 +114,8 @@ def install(raw_dir, desktop: bool, start: bool) -> Path:
             if not target.exists():
                 raise  # an already-installed copy that is running can't be overwritten: keep it
     _register(d)
+    import native_host  # lazy: native_host imports this module
+    native_host.register(target, d)
     set_shortcuts(target, desktop, start)
     return d
 
@@ -135,6 +137,8 @@ def uninstall(quiet=False):
     d = installed_dir() or DEFAULT_DIR
     exe = d / EXE_NAME
     _ps(_PS_SHORTCUTS, VG_DESKTOP="0", VG_START="0")
+    import native_host
+    native_host.unregister(d)
     try:
         winreg.DeleteKey(winreg.HKEY_CURRENT_USER, UNINSTALL_KEY)
     except OSError:

@@ -280,6 +280,9 @@ def find_browser():
 
 
 def main():
+    if len(sys.argv) > 1 and sys.argv[1].startswith("chrome-extension://"):  # launched by the browser extension
+        import native_host
+        return native_host.main()
     if "--uninstall" in sys.argv:
         if installer.IS_WIN:
             installer.uninstall(quiet="--quiet" in sys.argv)
