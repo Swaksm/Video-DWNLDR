@@ -35,6 +35,18 @@ Other ways to uninstall: **Windows Settings > Apps > Installed apps > Video Grab
 
 Your preferences (language, theme, folders) are stored in `%APPDATA%\VideoGrabber` and removed on uninstall.
 
+## Chrome extension
+
+The `extension/` folder is a Chrome (and Edge) extension: it spots videos in the background while you browse, shows their count on its icon, and downloads them in one click with your cookies and the page's Referer.
+
+Install (once):
+1. Open `chrome://extensions` (or `edge://extensions`) and turn on **Developer mode**.
+2. Click **Load unpacked** and pick the `extension` folder.
+
+Use: open a page, press play, click the Video Grabber icon, then **Download**. The file lands in your normal Downloads folder.
+
+Limits: HLS/DASH streams (`.m3u8`, `.mpd`) can't be saved by the extension. Use its **Copy URL** button, or paste the page URL into the app. A file is held in memory until it is saved, so very large videos are better downloaded with the app.
+
 ## Command line
 
 ```bash

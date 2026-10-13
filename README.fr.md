@@ -35,6 +35,18 @@ Autres façons de désinstaller : **Paramètres Windows > Applications > Applica
 
 Tes préférences (langue, thème, dossiers) sont dans `%APPDATA%\VideoGrabber` et supprimées à la désinstallation.
 
+## Extension Chrome
+
+Le dossier `extension/` est une extension Chrome (et Edge) : elle repère les vidéos en arrière-plan pendant que tu navigues, affiche leur nombre sur son icône, et les télécharge en un clic avec tes cookies et le Referer de la page.
+
+Installation (une fois) :
+1. Ouvre `chrome://extensions` (ou `edge://extensions`) et active le **Mode développeur**.
+2. Clique sur **Charger l'extension non empaquetée** et choisis le dossier `extension`.
+
+Utilisation : ouvre une page, lance la vidéo, clique sur l'icône Video Grabber, puis sur **Télécharger**. Le fichier arrive dans ton dossier Téléchargements habituel.
+
+Limites : l'extension ne peut pas enregistrer les flux HLS/DASH (`.m3u8`, `.mpd`). Utilise son bouton **Copier l'URL**, ou colle l'URL de la page dans l'application. Le fichier est gardé en mémoire jusqu'à l'enregistrement : pour les très grosses vidéos, préfère l'application.
+
 ## Ligne de commande
 
 ```bash
