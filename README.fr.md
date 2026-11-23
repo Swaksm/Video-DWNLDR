@@ -2,6 +2,8 @@
 
 [English](README.md) | **Français**
 
+Page du projet : [swaks.org/fr/projects/video-grabber.html](https://swaks.org/fr/projects/video-grabber.html)
+
 Colle l'URL d'une page : l'outil détecte les vidéos, tu choisis, il télécharge.
 Gère les protections par cookies / Referer / jeton temporaire (il télécharge depuis la session du navigateur).
 

@@ -2,6 +2,8 @@
 
 **English** | [Français](README.fr.md)
 
+Project page: [swaks.org/projects/video-grabber.html](https://swaks.org/projects/video-grabber.html)
+
 Paste a page URL: the tool detects its videos, you pick, it downloads.
 Works with cookie / Referer / temporary-token protection (it downloads from inside the browser session).
 
